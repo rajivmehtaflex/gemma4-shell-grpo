@@ -1,160 +1,157 @@
 # Gemma 4 E4B Shell GRPO Implementation Plan
 
-> **For agentic workers:** Use superpowers:executing-plans for implementation in this chat. This is a phase roadmap; refine the active phase into executable tasks before writing its code. Delegate only when the user explicitly requests it.
+> **For agentic workers:** Use superpowers:executing-plans for implementation in this chat. This is a phase roadmap; refine only the active phase into executable tasks before writing its code. Delegate only when the user explicitly requests it.
 
-**Goal:** Improve shell scripting through direct GRPO from original Gemma 4 E4B, using tasks informed by Pi logs and verifiable execution rewards.
+**Goal:** Test whether direct GRPO from the original Gemma 4 E4B instruction checkpoint improves shell scripting on unseen, verifiable tasks informed by Pi logs.
 
-**Architecture:** CPU workers prepare tasks and grade scripts in a restricted Linux environment. GPU workers generate candidates and train/evaluate the policy, calling the CPU grading layer. Pushed Git commits and durable artifact manifests connect machines.
+**Architecture:** CPU work discovers tasks, constructs fixtures, checks graders, and packages evidence. A temporary GPU worker generates candidates and trains the policy; its local CPU resources may grade scripts, so no distributed grading service is required. Pushed Git commits plus verified external artifacts preserve state between machines.
 
-**Tech Stack:** Python for data/orchestration, JSONL task records, Linux/Bash grading, Git/GitHub, proposed Unsloth + TRL fast training stack. GPU/runtime/package versions are selected and locked after compatibility evidence.
+**Tech Stack:** Python, uv, pytest, JSONL, Bash/GNU utilities in a digest-pinned restricted Linux image, Git/GitHub, proposed Unsloth + TRL + fresh LoRA adapters. Pin a tested GPU environment after compatibility evidence. Begin with the documented Unsloth inference path; accelerated generation is optional.
 
-**Spec:** [docs/DESIGN.md](docs/DESIGN.md)
+**Spec:** [docs/DESIGN.md](docs/DESIGN.md). **Recovery protocol:** [docs/HANDOFF.md](docs/HANDOFF.md).
+
+## Four questions before implementation
+
+1. **What would a specialist add?** Establish the baseline and challenge the grader before training; distinguish runtime defects from model weaknesses; predeclare the comparison and stopping rules; demonstrate restoration before a long run.
+2. **What raw material comes first?** Pi JSONL entries and branch IDs, original requests, exact commands/tool outputs, source model settings, and initial files/bytes/modes. Summaries and completed answers suggest tasks but do not prove correctness. Missing original state must be reconstructed and labeled or excluded.
+3. **Which methods and tools?** Branch-aware extraction; reproducible fixtures; reference and alternate solutions; deliberate wrong-script tests; family/source-grouped splits; matched baseline evaluation; on-policy GRPO; checkpoint interruption/recovery. Use the small stack above, not a new orchestration platform.
+4. **What independently establishes correctness?** Deterministic behavioral checks validated against known good/bad scripts, unseen task outcomes, paired uncertainty estimates, artifact hashes, and a fresh-process recovery demonstration. Neither an LLM judgment nor increasing training reward is sufficient.
 
 ## Global constraints
 
-- No SFT stage or previously trained/SFT adapter. Start with the original Gemma 4 E4B instruction checkpoint.
-- One script per task in the first release; multi-turn agent training is deferred.
-- GPU compute is used only for model-dependent work; grading and preparation use CPU resources.
-- Every milestone and machine handoff ends with evidence, a STATE.md update, commit, push, and remote verification.
-- Large/sensitive artifacts live in durable external storage; Git carries manifests and checksums.
-- Do not treat the Gemma 3 notebook's versions, rewards, or sequence limits as validated Gemma 4 settings.
-- Each phase is queued until its dependencies and exit criteria are satisfied. Creating this roadmap does not execute training.
+- No additional SFT stage or previously trained adapter. Use the original E4B instruction checkpoint; upstream instruction training is part of that starting checkpoint.
+- One generated Bash script per exercise initially. Start with five complete exercises, then about 20 diagnostics and 50–100 candidate exercises if source coverage supports them. These are feasibility sizes, not statistical guarantees.
+- Initial scope: local file selection/quoting, deterministic text transformations, short script repair. Defer live services, wall-clock tasks, and multi-turn agents.
+- Finish each phase's CPU preparation before GPU rental. Provider, isolation capability, artifact storage, and spending limits must be resolved before provisioning.
+- Every milestone and handoff ends with recorded evidence, STATE.md update, explicit-path commit, push, and remote verification. Large/sensitive payloads stay outside Git.
+- Freeze model/template/precision, task splits, grader, and evaluation budgets per experiment. Changes create a new version/run, not a silent continuation.
+- The Gemma 3 notebook is a conceptual reference, not a dependency lock or validated E4B configuration.
 
 ## Review focus
 
-- Filenames with spaces, newlines, leading dashes, empty inputs, and nested paths: exercised by Phase 1 runner/fixture checks and Phase 3 task verifiers.
-- Modified clocks, locale, utilities, and CPU host OS: normalized through a fixed Linux image and fixture seed in Phase 1.
-- Pi branching, compaction, source leakage, and embedded secrets: extraction/split checks in Phase 3.
-- Candidate tampering, cross-rollout contamination, and infrastructure failures: isolation and failure-classification checks in Phase 1.
-- Restarted GPU jobs with missing optimizer/RNG/data state: restoration experiment in Phase 6, required before Phase 7.
+- Spaces/newlines/leading dashes, empty input and nested paths: exercise in Phase 1 and task-specific Phase 3 checks.
+- False rewards for doing nothing, hard-coded output or wrong file selection: reject through Phase 1/3 wrong-script checks.
+- Branches/compaction/source duplication and hidden requirements: provenance and source-family split audits in Phase 3.
+- Cross-candidate state, different fixtures within a GRPO group, verifier tampering and infrastructure errors: Phase 1 isolation and Phase 2 reward alignment probes.
+- Lost optimizer/RNG/data/fixture state on another machine: Phase 6 restoration experiment before Phase 7.
 
-## Phase map
+## Phase map and acceptance evidence
 
-| Phase | Compute | Deliverable | Depends on |
-|---|---|---|---|
-| 0 | CPU | Private repo, design, plan, state and handoff rules | Current request |
-| 1 | CPU | Restricted grader and small diagnostic task suite | 0 |
-| 2 | GPU + CPU grading | Compatible fast stack and original-model weakness report | 1 |
-| 3 | CPU | Pi-derived exercises targeting measured weaknesses | 2 |
-| 4 | GPU generation + CPU grading | Difficulty screening and graded candidate evidence | 3 |
-| 5 | CPU | Frozen task release and experiment configuration | 4 |
-| 6 | GPU + CPU grading | Direct-GRPO pilot and successful checkpoint recovery | 5 |
-| 7 | GPU + CPU grading | Main GRPO run and durable checkpoints | 6 |
-| 8 | GPU generation + CPU grading | Held-out comparison, export, final report | 7 |
+| Phase | Compute | Result and evidence needed to advance |
+|---|---|---|
+| 0 | CPU | Private planning repo; clean local checkout agrees with remote |
+| 1 | CPU | Trustworthy grader; five full exercises, then small diagnostic suite |
+| 2 | GPU + CPU | E4B stack actually updates parameters; untouched baseline diagnoses real weaknesses |
+| 3 | CPU | Reviewed Pi-derived task bank with provenance and grouped splits |
+| 4 | GPU + CPU | Measured training difficulty and useful within-group reward variation |
+| 5 | CPU | Immutable task release and predeclared experiment/recovery configuration |
+| 6 | GPU + CPU | Short direct-GRPO pilot, verified resume, promising validation behavior |
+| 7 | GPU + CPU | Budgeted main run; validation-selected, durably stored checkpoint |
+| 8 | GPU + CPU | Matched unseen-task comparison and reproducible final handoff |
 
-### Phase 0 — Repository and planning checkpoint
+### Phase 0 — Repository and evidence contract
 
 **Files:** README.md, PLAN.md, STATE.md, AGENTS.md, docs/DESIGN.md, docs/HANDOFF.md, .gitignore.
 
-- [x] Create a private repository and add the planning documents.
-- [x] Review tracked files; commit and push the initial checkpoint.
-- [x] Confirm local/remote commit agreement and record the next phase.
+- [x] Establish the private repository and planning/state/handoff documents.
+- [x] Commit, push and verify the initial planning checkpoint.
+- [x] Review the deeper measurement and recovery contract in this revision; verify publication separately after committing.
 
-**Exit:** Private remote exists; planning commit is pushed; clean checkout and next action are recorded.
+**Gate:** Repo is recoverable and next action is explicit. Reuse the existing repo rather than create another.
 
-### Phase 1 — CPU grading foundation and diagnostic tasks
+### Phase 1 — Prove the CPU grader before trusting rewards
 
-**Planned files:** `pyproject.toml`, `src/shell_grpo/contracts.py`, `runner.py`, `fixtures.py`, `verifiers.py`, `rewards.py`, `configs/runner.yaml`, `containers/grader/Dockerfile`, `tests/test_runner.py`, `tests/test_rewards.py`, `data/examples/diagnostics.jsonl`.
+**Files:** `pyproject.toml`, `src/shell_grpo/{contracts,runner,fixtures,verifiers,rewards}.py`, `configs/runner.yaml`, `containers/grader/Dockerfile`, `tests/test_runner.py`, `tests/test_rewards.py`, `data/examples/diagnostics.jsonl`.
 
-**Interfaces:** Task records follow DESIGN.md. `grade_script(task_id, script, seed)` returns check results, score, status, and artifact references. Runner isolation is enforced outside candidate-controlled code.
+**Interface:** `grade_script(task_id, script, seed)` returns named checks, critical violations, score, execution status, and artifact references using DESIGN.md contracts.
 
-- [ ] Pin a CPU dependency environment; define and validate task/result schemas.
-- [ ] Implement a restricted Linux execution environment with fixed utilities, clock handling, no network, bounded CPU/memory/time, isolated writable paths, and external verifier access.
-- [ ] Check known valid/invalid scripts, alternate valid solutions, timeout/error categories, candidate tampering, and clean restoration between rollouts.
-- [ ] Create approximately 20 independently authored diagnostic tasks across file selection, quoting, text transformation, arguments, and error handling. Record these as diagnostics rather than Pi-derived data.
-- [ ] Store a fixture/reward report, update STATE.md, commit, push, and verify remote.
+- [ ] Lock a CPU environment independent of CUDA dependencies. Select a Linux runtime that can enforce unprivileged execution, no network/host mounts/credentials/socket, external grading, and bounded processes, memory, time, storage and output.
+- [ ] Implement task/result validation and fresh per-candidate fixtures. Fix utility versions, locale and timezone; do not assume a container freezes time.
+- [ ] Complete five exercises end to end before adding more. Each must accept a reference plus an alternate solution, reject relevant semantic errors/no-op/hard-coding, and repeat identically three times.
+- [ ] Check descendant cleanup, grader protection, isolation between candidates, timeouts and infrastructure-error reporting. Candidate execution is always inside the restricted runner.
+- [ ] Build approximately 20 diagnostics covering the three initial families. Store check-level evidence and fixture hashes; mark these as authored diagnostics rather than Pi-derived data.
 
-**Exit:** Deterministic graders distinguish working and broken solutions without using a GPU; diagnostic suite is ready for baseline generation.
+**Gate:** Every accepted exercise meets the positive/negative/repeatability checks. If the grader is ambiguous or insecure, repair it on CPU. Close milestone with report, state update, commit, push and remote verification.
 
-### Phase 2 — GPU compatibility and original-model weaknesses
+### Phase 2 — Prove E4B compatibility and measure the original model
 
-**Planned files:** `configs/model.yaml`, `configs/baseline.yaml`, `scripts/check_compatibility.py`, `src/shell_grpo/generate.py`, `src/shell_grpo/manifests.py`, `environments/gpu.lock`, `reports/baseline-diagnostics.md`.
+**Files:** `configs/{model,baseline}.yaml`, `scripts/check_compatibility.py`, `src/shell_grpo/{generate,manifests}.py`, `environments/gpu.lock`, `reports/baseline-diagnostics.md`.
 
-**Consumes:** Phase 1 task/grade contracts. **Produces:** Exact model revision, template, validated dependency lock, measured memory/throughput, original-policy diagnostic rollouts and failure categories.
+- [ ] Resolve GPU host, spending/time ceiling and private durable storage. Verify the host supports the Phase 1 runner before loading weights.
+- [ ] Map the deployment alias/digest to a precise upstream training checkpoint/tokenizer revision. Record precision, template, thinking mode, limits and decoding settings. Verify a fresh adapter does not change the initial baseline beyond documented numeric tolerance.
+- [ ] Follow the documented conservative Unsloth/TRL path first. On a few diagnostics, demonstrate finite gradients, a nonzero trainable-parameter update, correct prompt/candidate/reward alignment, and adapter save/reload. Do not use an SFT adapter.
+- [ ] Check all candidates in a prompt group receive identical fixture seeds on independent copies. Record generation/grading wall time, peak VRAM and CPU utilization; select hardware from measurements, not model-name size alone.
+- [ ] Reload the untouched original policy in a separate process for baseline measurement. Inspect extraction/runner defects, template/truncation/precision issues, then shell errors. Keep deployment-runtime findings distinct from upstream-checkpoint findings.
+- [ ] Test an accelerated rollout path only if needed and supported. Compare unchanged-policy outputs/log-probability behavior within declared tolerances before relying on it; the project can proceed on the proven conservative path.
 
-- [ ] Resolve GPU provider/type, spend limit, durable artifact storage, and intended fast stack; provision only when the run is ready.
-- [ ] Verify original Gemma 4 E4B model/tokenizer access, training load, chat template, thinking settings, fresh adapter attachment if used, and generation behavior. Never load an existing SFT adapter.
-- [ ] Run a minimal direct-GRPO compatibility probe using Phase 1 rewards: finite loss/gradients, changed trainable parameters, correct candidate/reward alignment, and save/reload. This probe does not replace the later controlled pilot.
-- [ ] Verify accelerated rollout integration if enabled; otherwise document measured limitations and adjust the proposed stack before continuing.
-- [ ] Generate baseline candidates in a separate process loaded from the untouched original checkpoint, never the updated compatibility-probe policy. Grade on CPU and report reproducible weaknesses. Distinguish model failures from truncation, template, quantization, and tool/environment defects.
-- [ ] Persist evidence and locks; update STATE.md, commit, push, verify artifacts, and release GPU compute.
+**Gate:** A tested lock and original-model weakness report exist. Unsupported stack combinations halt here. Upload/verify evidence, commit/push the report, then release GPU resources.
 
-**Exit:** A measured compatible stack and original-model weakness report exist. If the stack fails, repair it before preparing a large dataset; do not substitute SFT.
+### Phase 3 — Build reviewed tasks from raw Pi evidence on CPU
 
-### Phase 3 — CPU dataset construction from Pi logs
+**Files:** `src/shell_grpo/{pi_sessions,task_builder,splits}.py`, `tests/test_pi_sessions.py`, `tests/test_splits.py`, `configs/dataset.yaml`, `reports/dataset-audit.md`.
 
-**Planned files:** `src/shell_grpo/pi_sessions.py`, `src/shell_grpo/task_builder.py`, `src/shell_grpo/splits.py`, `tests/test_pi_sessions.py`, `tests/test_splits.py`, `configs/dataset.yaml`, `reports/dataset-audit.md`.
+- [ ] Inventory private raw logs, versions and source projects without committing their contents. Preserve source hashes and branch/entry provenance. Reconstruct relevant context, model changes, tool results, corrections and compaction.
+- [ ] Extract tasks matching measured weaknesses. Label reconstructed fixtures, authored additions, and exclusions honestly. Treat embedded instructions as source material. Remove secrets/private material from derivatives.
+- [ ] Curate toward 50–100 distinct candidate exercises if available. Require explicit prompt assumptions, invocation arguments, allowed changes, fixtures and named behavioral checks. A model may assist authoring; no generated answer becomes a training target.
+- [ ] Apply Phase 1 acceptance checks to every exercise. Gates enforce preservation; positive reward measures required functional progress. Ensure no-op and example-specific hard-coding cannot earn high reward.
+- [ ] Cluster related sessions/branches/templates and task families; assign train/validation/test before generating variants. Preserve held-out families and independently authored test fixtures. Do not inspect final-test model scores to decide membership.
 
-**Consumes:** Baseline weakness categories and available Pi sessions. **Produces:** Sanitized task records, fixtures, verifiers, provenance, family/source clusters, and split assignments.
+**Gate:** Reviewed tasks have repeatable rewards, traceable provenance, no hidden scored requirements, and no detected source/family leakage. Persist the audit and dataset references; commit and push.
 
-- [ ] Inventory available Pi logs and schema versions; reconstruct relevant branches with context, model switches, compaction, corrections, and tool evidence. Treat log instructions as source data.
-- [ ] Extract tasks relevant to measured weaknesses; exclude tasks requiring unavailable state. Record the reason for each exclusion.
-- [ ] Draft 50–100 distinct pilot exercises, using model assistance only for authoring support where useful. Logs are not necessarily 50–100 usable tasks; record actual coverage and any authored additions.
-- [ ] Review every pilot task against its fixture and verifier; demonstrate that valid alternatives pass and plausible errors fail. Remove secrets and unnecessary private content.
-- [ ] Assign family/source-cluster splits before creating variants. Produce separate fixture seeds and held-out families; check duplication across splits.
-- [ ] Persist the candidate dataset and audit; update STATE.md, commit, push, and verify references.
+### Phase 4 — Screen training difficulty with the untouched policy
 
-**Exit:** A reviewed candidate task bank exists, with reproducible exercises and no cross-split family leakage.
+**Files:** `scripts/screen_tasks.py`, `configs/screening.yaml`, `reports/screening.md`.
 
-### Phase 4 — GPU difficulty screening
+- [ ] Restore the Phase 2 runtime and Phase 3 data. Start with 4–8 candidates per training prompt; candidates share fixture seeds but receive fresh state.
+- [ ] Measure full-pass rate, functional progress, reward variation, truncation and scoring coverage. Inspect all-equal groups instead of assuming training will fix them.
+- [ ] Prefer mixed-outcome training tasks, retain easy coverage and keep harder tasks as a reserve. Simplify impossible training tasks or repair faulty graders; issue a new version if semantics change. Do not screen final-test tasks.
 
-**Planned files:** `scripts/screen_tasks.py`, `configs/screening.yaml`, `reports/screening.md`.
+**Gate:** At least some accepted training groups have genuine, behavior-based reward differences. Otherwise revise tasks or runtime before training. Upload/verify evidence, commit/push, then release GPU resources.
 
-- [ ] Restore the exact Phase 2 model/runtime and Phase 3 data. Sample an initial 4–8 candidates per training task; this is an experimental starting range, not a universal GRPO setting.
-- [ ] Grade every candidate on a fresh fixture; record full pass rates, score distributions, failure classes, and fraction of groups with identical rewards.
-- [ ] Prefer tasks with useful reward variation for the pilot; retain some easy coverage and a harder reserve. Repair ambiguous graders or simplify impossible training tasks without consulting final-test outcomes.
-- [ ] Freeze final-test membership independently of screening outcomes; persist screening evidence and selection rules.
-- [ ] Update STATE.md, commit, push, and release the GPU after evidence is durable.
+### Phase 5 — Freeze the CPU release and decision rule
 
-**Exit:** Training difficulty is measured, selection rules are explicit, and zero-signal groups are understood.
+**Files:** `scripts/package_dataset.py`, `configs/grpo-{pilot,main}.yaml`, `manifests/dataset-v1.json`, `reports/dataset-card.md`.
 
-### Phase 5 — CPU release and training configuration
+- [ ] Release immutable prompt/split records, fixture generators, verifier bundle, image digest and hashes; store payloads externally and manifests in Git. Grader-only fields never enter policy prompts.
+- [ ] Freeze the tested E4B script extraction contract, fixture seed schedule, rewards and per-task weights. Syntax/formatting alone earns no reward. Check actual sampled E4B outputs against the extractor.
+- [ ] Freeze matched inference settings, task-level pass-rate analysis, cluster bootstrap and the practical success target from DESIGN.md. Record independent test-cluster count and expected limits on uncertainty; a small study may be inconclusive.
+- [ ] Set sequence lengths, candidate count, batches, adapter/KL settings and checkpoint cadence from Phase 2 measurements. Specify max steps, GPU-time/spend ceiling, stop conditions and maximum acceptable checkpoint loss before renting GPU time.
+- [ ] Verify all CPU contracts from a clean checkout and rehearse dataset/artifact restoration. No test-score-driven changes are permitted after the experiment freeze.
 
-**Planned files:** `scripts/package_dataset.py`, `configs/grpo-pilot.yaml`, `configs/grpo-main.yaml`, `manifests/dataset-v1.json`, `reports/dataset-card.md`.
+**Gate:** Another machine can reconstruct one exact experiment from the pushed commit and hashed artifacts. Commit/push the release and GPU handoff instructions.
 
-- [ ] Package a versioned dataset, fixture/verifier bundle, image digest, and hashes. Keep large contents outside Git.
-- [ ] Freeze train/validation/test families, rewards, seeds, evaluation settings, and truncation rules. Keep grader-only metadata out of policy prompts.
-- [ ] Set pilot training settings from Phase 2 memory/throughput evidence: context limits, candidate count, batch/accumulation, adapter configuration, KL settings, checkpoint interval, and run budget.
-- [ ] Confirm sampled model outputs reach the executor through an unambiguous script extraction contract. Formatting reward must not dominate functional success.
-- [ ] Run the CPU data/contract checks; publish the manifest, update STATE.md, commit, push, and prepare the GPU handoff.
+### Phase 6 — Train a short pilot and prove recovery
 
-**Exit:** One immutable task release and a complete run configuration can be reconstructed on another machine.
+**Files:** `src/shell_grpo/{train,checkpointing}.py`, `scripts/restore_run.py`, `reports/pilot.md`.
 
-### Phase 6 — GPU direct-GRPO pilot and recovery
+- [ ] Start from the original policy with fresh adapters and generate on-policy candidates. Use the frozen external grader; no fixed Pi responses are substituted for model rollouts.
+- [ ] Run a short budgeted pilot. Inspect updates, candidate alignment, reward variance, KL, clipping, truncation, functional pass rate, critical violations and CPU grading bottlenecks.
+- [ ] Save a full checkpoint at an optimizer boundary, upload it and verify hashes. Restore from a fresh process/checkout; check trainer step, optimizer, scheduler, RNG and data/fixture state. Compare with a short uninterrupted control and document numeric tolerances/non-determinism.
+- [ ] Compare pilot and untouched original on validation under equal generation budgets. Proceed only with valid grading, successful recovery and a positive functional validation point estimate without increased observed critical violations. Pilot significance is not required; rising training reward alone is insufficient.
 
-**Planned files:** `src/shell_grpo/train.py`, `src/shell_grpo/checkpointing.py`, `scripts/restore_run.py`, `reports/pilot.md`.
+**Gate:** All three conditions pass: real GRPO updates, demonstrated recovery, promising validation. Otherwise revise one cause and repeat a versioned pilot. Persist report/checkpoints, commit/push, then release GPU resources.
 
-- [ ] Load the original checkpoint with fresh trainable adapters if selected; connect generated candidates to the frozen CPU grader. No SFT checkpoint is used.
-- [ ] Run a short budgeted pilot. Inspect candidate/score alignment, completion truncation, KL, reward variation, gradients, parameter changes, and task-family behavior.
-- [ ] Save a complete training recovery checkpoint; restore in a fresh process and confirm trainer step, optimizer/scheduler state, RNG/data state where supported, and continued training.
-- [ ] Compare original and pilot policy on frozen validation tasks under matched generation budgets; use functional performance rather than reward alone.
-- [ ] Record limitations and an evidence-based proceed/revise decision; persist artifacts, update STATE.md, commit, push, and release GPU resources.
+### Phase 7 — Run the bounded main experiment
 
-**Exit:** The pilot actually trains, checkpoint recovery works, and validation supports proceeding. Failed gates lead to another pilot, not automatic scaling.
+**Files:** `manifests/runs/<run-id>.json`, `reports/training.md`; checkpoint and rollout payloads remain external.
 
-### Phase 7 — Main GPU GRPO run
+- [ ] Declare original-policy restart or exact pilot-checkpoint continuation, with parent run and source SHA. Recheck data/runtime hashes before training.
+- [ ] Train within the frozen step/time/spend ceiling. Periodically validate and upload recovery checkpoints. Stop on invalid rewards, numerical failures, persistent scoring outages or functional regressions; classify interruptions honestly.
+- [ ] Select one checkpoint using validation only. Preserve completed and interrupted run lineage; do not choose by final-test performance.
 
-**Planned files:** `manifests/runs/<run-id>.json`, `reports/training.md`; generated checkpoint/rollout payloads remain external.
+**Gate:** A recoverable checkpoint and validation-based selection record exist within budget. Verify artifacts, commit/push the results/state checkpoint, then release GPU resources.
 
-- [ ] Start from the declared source checkpoint: original policy by default, or the exact pilot checkpoint only if the run explicitly records continuation.
-- [ ] Train under the approved budget with periodic validation and durable recovery checkpoints. Monitor grader throughput so a CPU bottleneck is not mistaken for slow GPU generation.
-- [ ] Stop/revise on numerical failure, reward exploits, pervasive truncation, or functional regressions. Log interrupted jobs as interrupted rather than completed.
-- [ ] Select the final checkpoint using validation only; persist artifacts and a results commit, push, verify the remote, then release GPU compute.
+### Phase 8 — Evaluate unseen behavior and close the loop
 
-**Exit:** A selected checkpoint, complete manifests, resource measurements, and recoverable training state exist.
+**Files:** `scripts/{evaluate,export_model}.py`, `reports/{final-evaluation,model-card}.md`, `manifests/release-v1.json`.
 
-### Phase 8 — Held-out evaluation, export, and final handoff
+- [ ] Run original and selected policy on frozen held-out tasks under identical backend/precision/template/thinking/decoding and generation budgets. Score independent fixture copies using the same declared requirements.
+- [ ] Report task-level single-attempt full-pass change, paired cluster-based 95% interval, family regressions, critical violations, scoring coverage, truncation and resource cost. Report multi-sample success separately. Use DESIGN.md's rule for improvement, no improvement or inconclusive evidence.
+- [ ] If inference export is needed, reload and check it. Quantized/Ollama export is conditional on deployment needs and gets its own matched comparison; training-backend gains do not automatically establish deployed gains.
+- [ ] Reproduce a sample result from a fresh checkout plus manifests. Preserve recovery checkpoints separately from inference adapters. Record exact next action or closeout decision in STATE.md.
 
-**Planned files:** `scripts/evaluate.py`, `scripts/export_model.py`, `reports/final-evaluation.md`, `reports/model-card.md`, `manifests/release-v1.json`.
-
-- [ ] Evaluate untouched original and selected GRPO policy on the same frozen held-out tasks, fixtures, toolset, prompt/template settings, and generation budgets.
-- [ ] Report single-attempt functional pass rate, uncertainty, category regressions, critical violations, truncation, generation cost, and grading failures. Report multi-sample metrics separately.
-- [ ] Export an inference artifact and validate reload. If a quantized/Ollama deployment is desired, evaluate that exported artifact separately before claiming deployed improvements.
-- [ ] Keep full recovery checkpoints distinct from inference exports. Publish code, manifests, documentation, and artifacts to their intended private destinations.
-- [ ] Update STATE.md with results and exact reproduction steps; commit, push, verify, and release remaining GPU compute.
-
-**Exit:** Improvement or lack of improvement is supported by held-out evidence; the result is reproducible and its limits are documented.
+**Gate:** A defensible result exists, including a negative or inconclusive result. Upload/verify artifacts, commit/push the final handoff and release remaining GPU resources.
 
 ## Current next action
 
-Phase 0 is complete. Refine and implement Phase 1 on CPU. No GPU session is required for this next phase.
+Phase 0 repository setup is complete. This revision deepens the plan only. Next: refine Phase 1 into executable CPU tasks and complete five trusted exercises before expanding the diagnostic suite. GPU compatibility, data extraction and training remain unstarted.
