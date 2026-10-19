@@ -4,7 +4,7 @@ Updated: 2026-10-19 (Asia/Kolkata)
 
 ## Current milestone
 
-Phase 0: planning files created; initial Git commit and private remote verification pending.
+Phase 0 complete. Planning checkpoint `6594b80d0415f6693721dbdf36759426c7462420` was pushed to `main`; GitHub private visibility and matching remote SHA were verified. Phase 1 is next and has not started.
 
 No model loading, Pi-log ingestion, generated-script execution, GPU provisioning, or training has occurred in this repository.
 
@@ -29,7 +29,7 @@ These decisions do not prevent Phase 1 CPU design and implementation.
 
 ## Next action
 
-Review and push planning files; verify private visibility and local/remote SHA agreement. Then implement Phase 1 from PLAN.md.
+Refine Phase 1 into executable CPU tasks, select the Linux grading runtime, then implement task contracts, the restricted runner, fixtures, verifiers, and the diagnostic suite. Consult PLAN.md. GPU provisioning is not needed yet.
 
 ## Provenance
 
@@ -42,3 +42,4 @@ Existing files in the parent workspace describe other projects with SFT prerequi
 - 2026-10-19: Parent workspace has no Git repository. Dedicated project directory selected.
 - 2026-10-19: GitHub authentication verified; active identity is `rajivmehtaflex`.
 - 2026-10-19: Roadmap and artifact/handoff contracts drafted. Implementation phases remain queued.
+- 2026-10-19: Private repository created at https://github.com/rajivmehtaflex/gemma4-shell-grpo; initial planning commit `6594b80` pushed and remote SHA verified. This state update is a subsequent documentation checkpoint.

@@ -46,9 +46,9 @@
 
 **Files:** README.md, PLAN.md, STATE.md, AGENTS.md, docs/DESIGN.md, docs/HANDOFF.md, .gitignore.
 
-- [ ] Create a private repository and add the planning documents.
-- [ ] Review tracked files; commit and push the initial checkpoint.
-- [ ] Confirm local/remote commit agreement and record the next phase.
+- [x] Create a private repository and add the planning documents.
+- [x] Review tracked files; commit and push the initial checkpoint.
+- [x] Confirm local/remote commit agreement and record the next phase.
 
 **Exit:** Private remote exists; planning commit is pushed; clean checkout and next action are recorded.
 
@@ -157,4 +157,4 @@
 
 ## Current next action
 
-Finish Phase 0 remote verification, then refine and implement Phase 1 on CPU. No GPU session is required for the planning checkpoint.
+Phase 0 is complete. Refine and implement Phase 1 on CPU. No GPU session is required for this next phase.
