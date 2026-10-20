@@ -39,7 +39,7 @@
 
 | Phase | Compute | Result and evidence needed to advance |
 |---|---|---|
-| 0 | CPU | Private planning repo; clean local checkout agrees with remote |
+| 0 | CPU | Public planning repo; preflight source audit and next action recorded |
 | 1 | CPU | Trustworthy grader; five full exercises, then small diagnostic suite |
 | 2 | GPU + CPU | E4B stack actually updates parameters; untouched baseline diagnoses real weaknesses |
 | 3 | CPU | Reviewed Pi-derived task bank with provenance and grouped splits |
@@ -51,37 +51,63 @@
 
 ### Phase 0 — Repository and evidence contract
 
-**Files:** README.md, PLAN.md, STATE.md, AGENTS.md, docs/DESIGN.md, docs/HANDOFF.md, .gitignore.
+**Files:** README.md, PLAN.md, STATE.md, AGENTS.md, docs/DESIGN.md, docs/HANDOFF.md, .gitignore; preflight evidence in `reports/source-preflight.md` and `reports/runtime-capabilities.md`.
 
-- [x] Establish the private repository and planning/state/handoff documents.
+- [x] Establish the repository and planning/state/handoff documents; repository subsequently made public at the user's request.
 - [x] Commit, push and verify the initial planning checkpoint.
 - [x] Review the deeper measurement and recovery contract in this revision; verify publication separately after committing.
 
-**Gate:** Repo is recoverable and next action is explicit. Reuse the existing repo rather than create another.
+- [ ] Perform a small CPU-only source preflight before Phase 1 implementation: locate user-designated Pi sessions, inspect up to ten representative sessions locally, and identify at least five plausible exercises spanning the initial categories. Record schema versions, available command/tool evidence, missing filesystem state, reconstruction effort, and exclusions in `reports/source-preflight.md`. Commit sanitized counts/provenance hashes only. If fewer usable tasks exist, stop for a dataset-scope decision rather than claim a Pi-derived corpus exists.
+- [ ] Define the runner's host requirements before selecting an engine: Linux architecture, namespaces/resource limits, unprivileged execution, fixture/result transport, external verifier access, and availability on candidate GPU host types. Use a pinned Linux/amd64 grading image as the initial cross-machine target; macOS development may use emulation. Record capability/transport decisions in `reports/runtime-capabilities.md`, record image digest per architecture, and run fixture parity checks if this target changes. No paid GPU is required for this capability check.
+
+**Gate:** Repository setup is complete; source feasibility and host-capability preflight remain unstarted. Reuse the existing public repo. Phase 1 code begins after these two preflight decisions and the five-exercise contract below are recorded.
 
 ### Phase 1 — Prove the CPU grader before trusting rewards
 
 **Files:** `pyproject.toml`, `src/shell_grpo/{contracts,runner,fixtures,verifiers,rewards}.py`, `configs/runner.yaml`, `containers/grader/Dockerfile`, `tests/test_runner.py`, `tests/test_rewards.py`, `data/examples/diagnostics.jsonl`.
 
-**Interface:** `grade_script(task_id, script, seed)` returns named checks, critical violations, score, execution status, and artifact references using DESIGN.md contracts.
+**Interface:** Specify versioned `TaskRecord` and `GradeResult` schemas in `contracts.py` before runner code. `grade_script(task_id: str, script: str, seed: int) -> GradeResult` derives the task's declared fixture-seed set from the supplied group seed. `GradeResult` contains schema/task/group/candidate IDs, script and fixture hashes, named check results, critical violations, execution status, nullable score, and artifact references. Status is one of `ok`, `invalid_script`, `runtime_error`, `resource_limit`, or `infrastructure_error`; only infrastructure errors have no score. All fixtures/checks aggregate by the task's declared weights; any critical violation makes the aggregate score zero. Freeze example task/result records and invalid-record checks before implementing execution.
+
+**Initial five exercises:** All prompts require one Bash script, specify argument conventions and allowed changes, and run with a fixed locale/toolset. The exact prompts, input bytes, expected outputs, and intentionally wrong scripts are Phase 1's first documentation deliverable.
+
+| ID | Exercise and invocation | Required outcome / critical checks |
+|---|---|---|
+| D01 | Count regular `.txt` files directly inside directory argument 1 | Print decimal count and newline; no recursion or symlink following; preserve all files; test empty input, spaces/newlines and leading dashes |
+| D02 | Copy regular `.log` files recursively from argument 1 into empty destination argument 2 | Preserve relative paths and file bytes; skip symlinks; preserve source and unrelated files; test nested duplicate basenames |
+| D03 | Aggregate two-field TSV input from file argument 1 | First field is a nonempty tab/newline-free key, second a nonnegative decimal integer; print one key/sum pair per key in C-locale key order; preserve input |
+| D04 | Repair a supplied file-copy script using source/destination directory arguments | Correct quoting, option handling and exit-status propagation; copy direct regular files including spaces/leading dashes, skipping symlinks; preserve source; specified invalid arguments must fail without mutation |
+| D05 | Repair a supplied two-stage log filtering/counting script with input-file argument 1 | Count lines containing the case-sensitive literal substring `ERROR`; print zero for no matches, but fail on missing/unreadable input; preserve input and propagate actual processing errors |
+
+**Reward examples:** D02 earns 1 only when every selected file is copied correctly and constraints hold. Copying a proper subset earns its fraction of required files copied; no copy on a nonempty fixture earns 0. Source damage, extra selected files, or destination paths outside the stated contract earn 0 regardless of progress. Preservation is a gate, never a positive reward component. An empty-input fixture may legitimately require no changes; every exercise also includes a nonempty fixture that defeats vacuous success.
+
+| Exercise | Positive reward rule | Zero-reward / critical examples |
+|---|---|---|
+| D01 | Fraction of fixture cases with exactly correct count and output format; full reward requires all cases | No output, wrong counts on every case, input mutation, or unusable execution |
+| D02 | Fraction of required files copied with exact relative path and bytes, averaged across fixtures | No progress on nonempty inputs, source damage, extra files or out-of-contract writes |
+| D03 | Fraction of expected keys with correct totals; full reward also requires sorted output and exact key set | No correct key totals, fabricated/extra keys, input mutation or unusable execution |
+| D04 | Fraction of required files copied correctly; full reward requires all success and invalid-argument fixtures | Source damage, symlink copying, mutation on invalid arguments, or no functional progress |
+| D05 | Fraction of valid-input cases with correct count/output; full reward requires every case | Missing/unreadable input incorrectly accepted, input mutation, no correct outputs, or unusable execution |
+
+For multi-fixture exercises, specified expected nonzero exits (such as invalid arguments in D04) are successful checks, not runtime failures. Unexpected nonzero exits score zero for that fixture. Task-critical violations zero the entire task reward. Freeze denominator/weight rules, empty-input handling and output-order checks with example records before acceptance; do not award partial credit for the wrong computation merely because the script parses.
 
 - [ ] Lock a CPU environment independent of CUDA dependencies. Select a Linux runtime that can enforce unprivileged execution, no network/host mounts/credentials/socket, external grading, and bounded processes, memory, time, storage and output.
 - [ ] Implement task/result validation and fresh per-candidate fixtures. Fix utility versions, locale and timezone; do not assume a container freezes time.
-- [ ] Complete five exercises end to end before adding more. Each must accept a reference plus an alternate solution, reject relevant semantic errors/no-op/hard-coding, and repeat identically three times.
+- [ ] Write and review the five exact prompts, invocation examples, schema examples and reward tables before runner implementation; then complete five exercises end to end before adding more. Each must accept a reference plus an alternate solution, reject relevant semantic errors/no-op/hard-coding, and repeat identically three times.
 - [ ] Check descendant cleanup, grader protection, isolation between candidates, timeouts and infrastructure-error reporting. Candidate execution is always inside the restricted runner.
+- [ ] Define the scoring failure protocol: candidate syntax/runtime errors and enforced time/memory/process/output limits score zero. A genuine infrastructure error retries the exact saved script/fixture up to two additional times without generating a replacement. Do not update the policy until the entire group is scored. If retries fail, invalidate the whole group, persist it, and halt the run for infrastructure repair; do not silently drop candidates or select a replacement group. A resumed run records its unchanged policy checkpoint and whether the invalidated group is replayed.
 - [ ] Build approximately 20 diagnostics covering the three initial families. Store check-level evidence and fixture hashes; mark these as authored diagnostics rather than Pi-derived data.
 
 **Gate:** Every accepted exercise meets the positive/negative/repeatability checks. If the grader is ambiguous or insecure, repair it on CPU. Close milestone with report, state update, commit, push and remote verification.
 
 ### Phase 2 — Prove E4B compatibility and measure the original model
 
-**Files:** `configs/{model,baseline}.yaml`, `scripts/check_compatibility.py`, `src/shell_grpo/{generate,manifests}.py`, `environments/gpu.lock`, `reports/baseline-diagnostics.md`.
+**Files:** `configs/{model,baseline}.yaml`, `scripts/check_compatibility.py`, `src/shell_grpo/{generate,evaluate,train,manifests}.py`, `scripts/evaluate.py`, `environments/gpu.lock`, `reports/baseline-diagnostics.md`.
 
 - [ ] Resolve GPU host, spending/time ceiling and private durable storage. Verify the host supports the Phase 1 runner before loading weights.
 - [ ] Map the deployment alias/digest to a precise upstream training checkpoint/tokenizer revision. Record precision, template, thinking mode, limits and decoding settings. Verify a fresh adapter does not change the initial baseline beyond documented numeric tolerance.
-- [ ] Follow the documented conservative Unsloth/TRL path first. On a few diagnostics, demonstrate finite gradients, a nonzero trainable-parameter update, correct prompt/candidate/reward alignment, and adapter save/reload. Do not use an SFT adapter.
+- [ ] Introduce minimal shared `generate.py`, `evaluate.py` and `train.py` entry points now. Baseline, screening, pilot and main runs reuse their output extraction, task iteration, generation settings and scoring failure protocol. The compatibility probe uses the same training path as the later pilot, with tiny limits. Follow the documented conservative Unsloth/TRL path first. On a few diagnostics, demonstrate finite gradients, a nonzero trainable-parameter update, correct prompt/candidate/reward alignment, and adapter save/reload. Do not use an SFT adapter.
 - [ ] Check all candidates in a prompt group receive identical fixture seeds on independent copies. Record generation/grading wall time, peak VRAM and CPU utilization; select hardware from measurements, not model-name size alone.
-- [ ] Reload the untouched original policy in a separate process for baseline measurement. Inspect extraction/runner defects, template/truncation/precision issues, then shell errors. Keep deployment-runtime findings distinct from upstream-checkpoint findings.
+- [ ] Produce a per-task/per-candidate evaluation record with model/config/fixture hashes, complete script, score/checks, status, truncation and timing. Use this evaluator for all later validation and test comparisons. Reload the untouched original policy in a separate process for baseline measurement. Inspect extraction/runner defects, template/truncation/precision issues, then shell errors. Keep deployment-runtime findings distinct from upstream-checkpoint findings.
 - [ ] Test an accelerated rollout path only if needed and supported. Compare unchanged-policy outputs/log-probability behavior within declared tolerances before relying on it; the project can proceed on the proven conservative path.
 
 **Gate:** A tested lock and original-model weakness report exist. Unsupported stack combinations halt here. Upload/verify evidence, commit/push the report, then release GPU resources.
@@ -94,7 +120,8 @@
 - [ ] Extract tasks matching measured weaknesses. Label reconstructed fixtures, authored additions, and exclusions honestly. Treat embedded instructions as source material. Remove secrets/private material from derivatives.
 - [ ] Curate toward 50–100 distinct candidate exercises if available. Require explicit prompt assumptions, invocation arguments, allowed changes, fixtures and named behavioral checks. A model may assist authoring; no generated answer becomes a training target.
 - [ ] Apply Phase 1 acceptance checks to every exercise. Gates enforce preservation; positive reward measures required functional progress. Ensure no-op and example-specific hard-coding cannot earn high reward.
-- [ ] Cluster related sessions/branches/templates and task families; assign train/validation/test before generating variants. Preserve held-out families and independently authored test fixtures. Do not inspect final-test model scores to decide membership.
+- [ ] Build a relationship graph linking common source episodes, forks/branches, paraphrases, task templates and diagnostic derivatives. Assign connected components wholly to one split before creating variants; audit duplicate text and shared solution patterns. Diagnostic exercises and their derivatives belong to the development pool and are excluded from the final unseen test set.
+- [ ] Target grouped train/validation/test proportions of 60/20/20, preserving components and reporting actual counts rather than splitting related examples to meet percentages. Reserve independent test fixtures and task families. Lock a small known-good shell regression subset from baseline successes inside validation; retain it for every policy comparison. Never select final-test membership from test model scores.
 
 **Gate:** Reviewed tasks have repeatable rewards, traceable provenance, no hidden scored requirements, and no detected source/family leakage. Persist the audit and dataset references; commit and push.
 
@@ -102,11 +129,11 @@
 
 **Files:** `scripts/screen_tasks.py`, `configs/screening.yaml`, `reports/screening.md`.
 
-- [ ] Restore the Phase 2 runtime and Phase 3 data. Start with 4–8 candidates per training prompt; candidates share fixture seeds but receive fresh state.
+- [ ] Restore the Phase 2 runtime and Phase 3 data. Start with eight candidates per training prompt; candidates share fixture seeds but receive fresh state.
 - [ ] Measure full-pass rate, functional progress, reward variation, truncation and scoring coverage. Inspect all-equal groups instead of assuming training will fix them.
-- [ ] Prefer mixed-outcome training tasks, retain easy coverage and keep harder tasks as a reserve. Simplify impossible training tasks or repair faulty graders; issue a new version if semantics change. Do not screen final-test tasks.
+- [ ] Freeze screening thresholds before sampling: start with eight candidates per task and confirm apparently informative tasks with a second independent group seed. A useful group has at least two different functional rewards. The initial readiness heuristic requires at least 25% of screened training tasks to produce useful groups in both screenings, with at least five independent task families and coverage of each retained task category. These are operational pilot thresholds, not guarantees of learning. Prefer mixed-outcome training tasks, retain easy coverage and keep harder tasks as a reserve. Simplify impossible training tasks or repair faulty graders; issue a new version if semantics change. Do not screen final-test tasks.
 
-**Gate:** At least some accepted training groups have genuine, behavior-based reward differences. Otherwise revise tasks or runtime before training. Upload/verify evidence, commit/push, then release GPU resources.
+**Gate:** The predeclared informative-task proportion, family count, category coverage and scoring coverage are met. Every attempted candidate has a scored outcome or an explicitly halted infrastructure failure; the latter does not count as a low-reward response. Otherwise revise tasks or runtime before training. Upload/verify evidence, commit/push, then release GPU resources.
 
 ### Phase 5 — Freeze the CPU release and decision rule
 
@@ -114,7 +141,10 @@
 
 - [ ] Release immutable prompt/split records, fixture generators, verifier bundle, image digest and hashes; store payloads externally and manifests in Git. Grader-only fields never enter policy prompts.
 - [ ] Freeze the tested E4B script extraction contract, fixture seed schedule, rewards and per-task weights. Syntax/formatting alone earns no reward. Check actual sampled E4B outputs against the extractor.
-- [ ] Freeze matched inference settings, task-level pass-rate analysis, cluster bootstrap and the practical success target from DESIGN.md. Record independent test-cluster count and expected limits on uncertainty; a small study may be inconclusive.
+- [ ] Declare the first 50–100-exercise release exploratory by default. Freeze evaluation task/component counts, split proportions actually achieved, number of generation repetitions, matched inference settings and paired task-level analysis before training. Average repetitions within task, then bootstrap independent connected source/family components. Report too-few-component uncertainty explicitly; do not treat fixture variants as extra independent evidence.
+- [ ] Retain the proposed +5 percentage-point effect as a practical target, not a promise that the pilot can detect it. A confirmatory claim requires a precision/power assessment using development data or simulation before opening final-test outcomes, with a sufficient independent test set and the predeclared 95% interval criterion from DESIGN.md. Otherwise report an exploratory estimate, regressions and potentially inconclusive evidence. Never upgrade the claim or grow the test set in response to observed final-test scores.
+- [ ] Freeze initial training sampling: sample tasks uniformly from the accepted training pool and rotate group fixture seeds; record easy/mixed/hard proportions and per-category frequencies. Do not add adaptive filtering or curriculum changes silently; a later change requires a new run/config and a repeated readiness check.
+- [ ] Limit the exploratory campaign to at most three pilot configurations, one primary training seed per configuration, final-only validation selection per pilot, and five scheduled main-run validation checkpoints including the final checkpoint. Count early termination and failed configurations in the ledger. Freeze validation generation repetitions and quantitative regression/critical-violation stop thresholds before the first pilot. Log every attempted configuration, not only the selected winner. Report evidence from one training seed as conditional on that seed; method-level reliability requires separately budgeted replication.
 - [ ] Set sequence lengths, candidate count, batches, adapter/KL settings and checkpoint cadence from Phase 2 measurements. Specify max steps, GPU-time/spend ceiling, stop conditions and maximum acceptable checkpoint loss before renting GPU time.
 - [ ] Verify all CPU contracts from a clean checkout and rehearse dataset/artifact restoration. No test-score-driven changes are permitted after the experiment freeze.
 
@@ -122,14 +152,14 @@
 
 ### Phase 6 — Train a short pilot and prove recovery
 
-**Files:** `src/shell_grpo/{train,checkpointing}.py`, `scripts/restore_run.py`, `reports/pilot.md`.
+**Files:** Extend Phase 2's `src/shell_grpo/train.py`; add `src/shell_grpo/checkpointing.py`, `scripts/restore_run.py`, `reports/pilot.md`.
 
 - [ ] Start from the original policy with fresh adapters and generate on-policy candidates. Use the frozen external grader; no fixed Pi responses are substituted for model rollouts.
 - [ ] Run a short budgeted pilot. Inspect updates, candidate alignment, reward variance, KL, clipping, truncation, functional pass rate, critical violations and CPU grading bottlenecks.
 - [ ] Save a full checkpoint at an optimizer boundary, upload it and verify hashes. Restore from a fresh process/checkout; check trainer step, optimizer, scheduler, RNG and data/fixture state. Compare with a short uninterrupted control and document numeric tolerances/non-determinism.
 - [ ] Compare pilot and untouched original on validation under equal generation budgets. Proceed only with valid grading, successful recovery and a positive functional validation point estimate without increased observed critical violations. Pilot significance is not required; rising training reward alone is insufficient.
 
-**Gate:** All three conditions pass: real GRPO updates, demonstrated recovery, promising validation. Otherwise revise one cause and repeat a versioned pilot. Persist report/checkpoints, commit/push, then release GPU resources.
+**Gate:** All three conditions pass: real GRPO updates, demonstrated recovery, promising validation. Otherwise revise one cause and repeat a versioned pilot only within the frozen three-configuration campaign limit. Once that limit is reached, report the result and require a new documented research decision before further GPU runs. Persist report/checkpoints, commit/push, then release GPU resources.
 
 ### Phase 7 — Run the bounded main experiment
 
@@ -143,7 +173,7 @@
 
 ### Phase 8 — Evaluate unseen behavior and close the loop
 
-**Files:** `scripts/{evaluate,export_model}.py`, `reports/{final-evaluation,model-card}.md`, `manifests/release-v1.json`.
+**Files:** Reuse Phase 2's `scripts/evaluate.py` and evaluator; add `scripts/export_model.py`, `reports/{final-evaluation,model-card}.md`, `manifests/release-v1.json`.
 
 - [ ] Run original and selected policy on frozen held-out tasks under identical backend/precision/template/thinking/decoding and generation budgets. Score independent fixture copies using the same declared requirements.
 - [ ] Report task-level single-attempt full-pass change, paired cluster-based 95% interval, family regressions, critical violations, scoring coverage, truncation and resource cost. Report multi-sample success separately. Use DESIGN.md's rule for improvement, no improvement or inconclusive evidence.
@@ -154,4 +184,21 @@
 
 ## Current next action
 
-Phase 0 repository setup is complete. This revision deepens the plan only. Next: refine Phase 1 into executable CPU tasks and complete five trusted exercises before expanding the diagnostic suite. GPU compatibility, data extraction and training remain unstarted.
+Phase 0 repository setup is complete and the repository is public. Next: perform the small Pi source and runtime-capability preflight, then specify the five Phase 1 exercises, schemas, reward examples and failure protocol before implementing the CPU grader. No source audit, grader implementation, GPU compatibility experiment or training has been performed by updating this roadmap.
+
+## Review-gap closure map
+
+| Review finding | Planning resolution |
+|---|---|
+| 1–2: Training/evaluation dependencies | Shared minimal train/generate/evaluate paths introduced in Phase 2 and reused thereafter |
+| 3: Late source feasibility | CPU-only representative source audit before Phase 1 implementation |
+| 4: Unscorable candidates | Bounded same-candidate retries, group-wide invalidation and halted updates on persistent infrastructure failure |
+| 5: Cross-machine runner | Capability/architecture/transport contract before selecting the engine |
+| 6–7: Exercise/schema/reward ambiguity | Five named exercises, typed result contract and mandatory reward examples in Phase 1 |
+| 8: Weak screening gate | Predeclared informative-task/family/category thresholds and fixed initial sampling policy |
+| 9: Overlapping splits | Connected-component grouping and diagnostic-derivative exclusion |
+| 10: Evaluation size and claims | Exploratory default; predeclared independent test size/repetitions and confirmatory precision assessment |
+| 11: Repeated selection and regression | Fixed campaign/validation limits, complete trial ledger and known-good regression subset |
+| 12: Repository visibility | Public repository status recorded; historical private creation remains history |
+
+These are planning resolutions, not evidence that their implementation gates have passed. Refine the active phase only; update supporting contracts when that phase's executable design is reviewed.

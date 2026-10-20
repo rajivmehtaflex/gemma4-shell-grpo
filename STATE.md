@@ -1,10 +1,10 @@
 # Project state
 
-Updated: 2026-10-19 (Asia/Kolkata)
+Updated: 2026-10-20 (Asia/Kolkata)
 
 ## Current milestone
 
-Phase 0 repository setup is complete. Before this revision, checkpoint `5f225c3969639029ea281fcf40b1b73ea97da97b` matched fetched `origin/main`; GitHub private visibility was verified. This documentation revision deepens the measurement, dataset, reward and recovery contracts. Phase 1 is next and has not started. The containing revision's commit/push is verified externally after publication; no self-referential commit SHA is embedded here.
+Phase 0 repository setup is complete. The repository was subsequently made public at the user's request. The current documentation update incorporates the 12 review findings into PLAN.md and moves a small source/runtime preflight ahead of Phase 1 implementation. Preflight, Phase 1 and all model experiments remain unstarted. Publication of this revision is verified after its commit; this file does not embed its own containing commit SHA.
 
 No model loading, Pi-log ingestion, generated-script execution, GPU provisioning, or training has occurred in this repository.
 
@@ -12,7 +12,7 @@ No model loading, Pi-log ingestion, generated-script execution, GPU provisioning
 
 - Original Gemma 4 E4B instruction checkpoint; direct GRPO; no SFT stage.
 - CPU-first preparation and grading, GPU only for model-dependent work.
-- Separate private GitHub repository: `rajivmehtaflex/gemma4-shell-grpo`, using the active authenticated GitHub account.
+- Separate public GitHub repository: `rajivmehtaflex/gemma4-shell-grpo`, using the active authenticated GitHub account.
 - One generated script per exercise initially.
 - Proposed fast stack is Unsloth + TRL, accelerated rollout integration conditional on compatibility evidence.
 - Commit and push at every milestone and machine handoff.
@@ -26,14 +26,14 @@ No model loading, Pi-log ingestion, generated-script execution, GPU provisioning
 - Phase 1: choose CPU runtime/container engine and confirm Linux execution isolation requirements.
 - Phase 2: confirm the intended fast stack, GPU provider/type and isolation capabilities, session budget, exact upstream model/tokenizer revisions, and tested dependency versions. Proposed conservative path: Unsloth + TRL, fresh LoRA, `fast_inference=False`; accelerated rollout generation is optional.
 - Phase 2: select durable private artifact storage and retention policy; this must exist before the first GPU run.
-- Phase 3: identify Pi session locations, relevant projects, and whether their original environments can be recreated.
+- Before Phase 1 implementation: identify user-designated representative Pi sessions and assess source viability and reconstructable state; full extraction remains Phase 3.
 - Phase 5: finalize training hyperparameters and checkpoint cadence from measured compatibility/screening evidence.
 
-These decisions do not prevent Phase 1 CPU design and implementation.
+Source feasibility and the runner capability contract must be recorded before Phase 1 implementation. GPU-specific choices remain deferred until their dependent phases.
 
 ## Next action
 
-Refine Phase 1 into executable CPU tasks, select the Linux grading runtime, then implement contracts and five complete exercises with positive/negative/repeatability evidence. Expand toward 20 diagnostics only after these pass. Consult PLAN.md. GPU provisioning is not needed yet.
+Perform the small Pi-source and runtime-capability preflight in PLAN.md Phase 0. Then specify the five Phase 1 exercises, typed schemas, reward examples and failure handling before CPU implementation. Expand toward 20 diagnostics only after the five pass. No GPU provisioning is needed.
 
 ## Provenance
 
@@ -50,3 +50,5 @@ Existing files in the parent workspace describe other projects with SFT prerequi
 - 2026-10-19: Existing clean repo reused; fetched local/remote checkpoint `5f225c3` and private visibility verified. No duplicate repository created.
 - 2026-10-19: Checked current Unsloth training/RL guide and TRL documentation through Context7. Unsloth documents a conservative Gemma 4 RL path with `fast_inference=False`; this is documentation evidence, not a tested E4B runtime or VRAM claim.
 - 2026-10-19: Revised the existing nine-phase plan with raw-source provenance, wrong-script grader checks, matched controls, reward group fixture identity, statistical uncertainty and fresh-process recovery evidence. No implementation or model experiment performed.
+
+- 2026-10-20: Updated PLAN.md to address all 12 review findings at the planning level, including earlier source preflight, shared Phase 2 training/evaluation, explicit scoring failures, concrete diagnostic exercises, screening thresholds, grouped splits and bounded experiment selection. Gates remain unexecuted. Repository is public following the user-authorized visibility change; raw data and checkpoint storage remain private.
