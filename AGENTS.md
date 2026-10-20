@@ -20,6 +20,8 @@ Research repo testing whether direct GRPO (no SFT) from the original Gemma 4 E4B
 - Never commit model artifacts or raw data: `.gitignore` blocks `artifacts/`, `checkpoints/`, `data/raw/`, `data/processed/`, `outputs/`, `runs/`, and `*.safetensors`/`*.gguf`/`*.pt`/`*.pth`/`*.ckpt`. Git holds code, configs, plans, manifests, and small sanitized fixtures only.
 - Persist artifacts separately and verify hashes. A Git commit alone does not preserve training state.
 - Never overwrite another worker's dirty checkout. Each machine uses its own checkout; record the source commit of every run.
-- GPU provider, durable artifact storage, spending limits, and the interpretation of the fast stack are pending decisions in STATE.md. Do not provision paid resources based on assumptions.
+- CPU work prioritizes GitHub Codespaces through `gh-cli-ops`; GPU work prioritizes Google Colab through `colab-ssh-setup`. Phase 8 uses Colab then Codespaces. Each phase includes activation/reconnection, full task execution and acceptance checks, artifact preservation, commit/push and verified shutdown.
+- `modal-deploy-ssh` is an explicitly selected fallback. SSH access alone does not satisfy the restricted grading contract.
+- CPU resources/Codespaces access, Colab session name/accelerator, durable artifact storage, spending limits and exact fast-stack configuration remain pending in STATE.md. Confirm the Colab session name before first provisioning, as its skill requires. Do not provision paid resources based on assumptions.
 - If .codegraph/ exists at the repository root, use CodeGraph before searching or reading code to understand it. Otherwise skip it.
 - Use Context7 for current library/CLI documentation when making implementation decisions; do not copy the reference notebook's dependency pins blindly.

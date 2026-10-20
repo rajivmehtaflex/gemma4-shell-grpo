@@ -15,6 +15,10 @@ Discover shell scripting weaknesses in the original Gemma 4 E4B, construct a tas
 - Direct GRPO can train fresh LoRA adapters; no previously trained/SFT adapter is introduced. Adapter targets and hyperparameters are decided from compatibility evidence.
 - Proposed fast stack: Unsloth + TRL with fresh text LoRA adapters for direct GRPO. Establish the documented `fast_inference=False` path first; an accelerated rollout backend is optional and requires separate parity and training evidence. This is a proposed implementation, not a measured E4B configuration.
 
+## Execution routing
+
+The controller prioritizes GitHub Codespaces through `gh-cli-ops` for CPU phases and Google Colab through `colab-ssh-setup` for GPU phases. Phase 8 uses Colab for model evaluation and Codespaces for reporting. `modal-deploy-ssh` is an explicitly selected fallback. Each phase includes machine activation/reconnection, execution of every phase task and acceptance check, verified private artifact preservation, reviewed Git publication and confirmed shutdown. The controller is the default GitHub writer; worker-side publication requires recorded ownership and scoped authentication. Source/credential access, resources and spending limits are checked before allocation, and the Colab session name is confirmed before first provisioning. Every provider must enforce the same restricted grading contract; neither an SSH login nor an outer cloud sandbox alone establishes candidate isolation. See PLAN.md for per-phase routing and HANDOFF.md for provider lifecycle/recovery details.
+
 ## Research question and independent evidence
 
 Question: under a fixed inference budget, does direct GRPO improve the original E4B instruction checkpoint's ability to produce correct Bash scripts on unseen exercises derived from the same kinds of work as the available Pi sessions?

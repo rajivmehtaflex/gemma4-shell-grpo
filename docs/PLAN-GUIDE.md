@@ -9,7 +9,12 @@ to say *why* each of its somewhat unusual strictness exists.
 
 **Status check while reading:** this repository currently contains planning documents only. No
 model has been loaded, no shell script has been generated or executed, no GPU has been rented, and
-no training has run. Everything below describes work that is planned, not work that has happened.
+no training has run. No Codespace, Colab runtime or Modal session has been activated by this documentation update. Everything below describes work that is planned, not work that has happened.
+
+**Where the work will happen:** ordinary CPU phases use **GitHub Codespaces** through the
+`gh-cli-ops` skill; model/GPU phases use **Google Colab** through `colab-ssh-setup`. Each phase
+includes starting or reconnecting to its machine, doing the whole phase, saving the results,
+committing/pushing its milestone, and stopping the machine. Section 4 explains this workflow.
 
 ---
 
@@ -229,40 +234,91 @@ not something to leave at a default and forget.
 
 ---
 
-## 4. The architecture sentence, decoded
+## 4. Who does the work, and on which machine?
 
-PLAN.md's architecture paragraph is dense. Here it is clause by clause.
+Think of the project as a workshop with a coordinator and two workbenches.
 
-> **"CPU work discovers tasks, constructs fixtures, checks graders, and packages evidence."**
+- **The local controller** is the assistant coordinating from your computer. It reads the plan,
+  chooses the next ready phase, connects to the right machine, checks the results, and records
+  the handoff. Your computer is also where source files can be selected for authorized private
+  transfer. Generated scripts are always executed inside the restricted grading environment.
+- **GitHub Codespaces is the CPU workbench.** It is a remote development computer for ordinary
+  programming and data preparation. We prioritize it for CPU phases, using the `gh-cli-ops`
+  skill's Codespaces commands to find, start/connect to, and stop the correct workspace.
+- **Google Colab is the GPU workbench.** A GPU can perform the model calculations needed for
+  generation and training. We prioritize a named Colab runtime for GPU phases, using
+  `colab-ssh-setup` to connect over SSH. SSH is the remote connection; it does not do the training.
+- **Modal is the reserve workbench.** `modal-deploy-ssh` is used only after an explicit fallback
+  decision if the preferred machine cannot meet the requirements. It is not started alongside
+  every phase and is not selected automatically.
 
-Everything that does not need a model runs on ordinary laptops. That is: deciding *what* to
-train on (Phase 3, from your Pi session logs), building the test data each task needs, proving
-the graders are trustworthy (Phase 1), and freezing and packaging everything for a reproducible
-experiment (Phase 5).
+A **skill** is a set of instructions the assistant follows. It does not mean a machine is already
+running or that phase code already exists. The assistant uses the skill to activate the worker,
+then implements/runs that phase's work and checks. `gh-cli-ops` also supports the GitHub checks
+and publication used at the end of every phase, including Colab phases.
 
-> **"A temporary GPU worker generates candidates and trains the policy."**
+### 4.1 The same complete cycle in every phase
 
-Training needs a GPU, so you rent one for a while, do the model work there, and hand it back.
-"Policy" is another word for "the model, as a thing that chooses actions." "Temporary" is
-load-bearing: PLAN.md requires releasing the GPU at the end of every GPU phase, and never letting
-paid compute idle indefinitely.
+1. **Check the starting point.** Read STATE.md and the phase requirements. Confirm the right
+   source-code version, files, account, machine resources, storage and spending limit.
+2. **Activate the right workbench.** Reconnect to a suitable existing Codespace or Colab runtime;
+   create one only if needed. Confirm the Colab name before its first creation. Verify the actual
+   worker identity, rather than assuming an old SSH shortcut still points to it.
+3. **Restore the inputs.** Get the recorded code version, install the recorded software environment,
+   and retrieve the matching private data/checkpoints. Check their file fingerprints (hashes).
+4. **Do the entire phase.** Run all its tasks and checks. Getting an SSH connection is the start
+   of the work, not the completion signal.
+5. **Save and publish.** Copy large/private results to durable private storage and verify them.
+   The controller reviews sanitized reports, updates STATE.md, commits the milestone, pushes it,
+   and checks that GitHub has the same version. The controller is the default GitHub writer.
+6. **Stop and record the next action.** Stop the active worker, check that the provider reports
+   it stopped, and record where the next phase should pick up. Keep a verified artifact copy
+   independent of that worker before stopping it. The controller then publishes a small final
+   state update recording the verified shutdown, so the next phase sees what actually happened.
 
-> **"Its local CPU resources may grade scripts, so no distributed grading service is required."**
+Stopping a Codespace preserves its workspace for its retention period; it is different from
+deleting it. Storage can still have a cost. Colab's `/content` is temporary and must not be the
+only copy of a dataset or training checkpoint. Closing SSH or the editor does not prove that
+remote compute has stopped. Both CPU and GPU workspaces can have costs; check the limits first.
 
-Grading a shell script means *running* a shell script and checking the output — that is CPU work,
-not GPU work. The rented GPU machine has CPU cores anyway, so grading happens on that same box.
-The alternative — a networked grading service the candidate scripts call into — would add
-infrastructure, add a network attack surface, and add a service to keep alive. The plan prefers
-the simpler design, and the *isolation* requirements (no network, no host mounts, no credentials,
-no container socket, no access to the verifier) are checked on the CPU machine **and** the GPU
-host.
+### 4.2 Which skill runs each phase?
 
-> **"Pushed Git commits plus verified external artifacts preserve state between machines."**
+| Phase | Machine activation skill | What the assistant completes there |
+|---|---|---|
+| 0 | `gh-cli-ops` → CPU Codespace | Source sample audit and runtime capability preflight |
+| 1 | `gh-cli-ops` → CPU Codespace | Grader, five exercises, diagnostic checks |
+| 2 | `colab-ssh-setup` → Colab GPU | Compatibility proof and original-model baseline |
+| 3 | `gh-cli-ops` → CPU Codespace | Pi-derived task construction, checks, splits and audit |
+| 4 | `colab-ssh-setup` → Colab GPU | Candidate generation, grading and difficulty screening |
+| 5 | `gh-cli-ops` → CPU Codespace | Frozen dataset/configuration and GPU handoff |
+| 6 | `colab-ssh-setup` → Colab GPU | Pilot, recovery demonstration and validation comparison |
+| 7 | `colab-ssh-setup` → Colab GPU | Bounded main training run and checkpoint selection |
+| 8 | Colab skill, then GH skill | GPU evaluation first; CPU analysis, reporting and final handoff second |
 
-You will move between machines constantly. Git holds code, configs, plans, and reports. Git cannot
-hold model weights, datasets, or raw logs, so those live in durable storage and Git records their
-addresses and checksums. Neither alone is the complete project state — you need both. A commit
-tells you *what code ran*; an artifact tells you *what it ran on*.
+**Example:** Phase 3 finishes in Codespaces and saves the reviewed task bank privately. Its Git
+milestone records the dataset fingerprint and storage reference. Phase 4 activates Colab,
+restores exactly that version, and screens the tasks. The screening evidence is saved, its Git
+checkpoint is published, and Colab is stopped. Phase 5 reconnects to Codespaces, retrieves that
+evidence, and freezes the experiment. We move verified work between machines; we do not start
+from memory each time.
+
+### 4.3 Three different things that must be saved
+
+| Item | Plain-language meaning | Where it belongs |
+|---|---|---|
+| Code and reports | The instructions and sanitized written results | Git/GitHub |
+| Data and model checkpoints | The inputs and saved training progress | Private durable artifact storage |
+| Session record | Which machine ran what, its resource limits and whether it stopped | Sanitized state/manifest; sensitive connection details remain private |
+
+A checkpoint that can resume training includes more than the model's learned adapter. It also
+includes the optimizer, training step and other recovery state described in HANDOFF.md. A saved
+SSH address is not a saved training process. If a connection drops, first inspect the existing
+runtime/job and try to reconnect; do not start a duplicate training job or claim the phase is done.
+
+Finally, **the cloud workspace is not automatically a safe script grader**. The GPU runtime has
+CPU cores for checking scripts, but it must still enforce the same restricted Linux grading
+rules as Codespaces. If that is impossible, stop that execution path and assess the fallback;
+never run generated scripts directly in the SSH login environment.
 
 ---
 
@@ -290,6 +346,8 @@ deliberate.
 
 ### Phase 0 — Repository and evidence contract · *setup complete, preflights unstarted*
 
+**Machine and skill:** Use `gh-cli-ops` to activate the CPU Codespace, finish both preflights there, save their evidence, publish the milestone and stop the workspace. Repository creation itself is already done.
+
 Create the repo, the planning documents, the state ledger, and the handoff rules, and push them
 so a second machine can pick the work up. The rule for this project is that *state lives in Git
 plus hashed external artifacts*, never in one machine's disk. The repository was created private
@@ -300,7 +358,7 @@ Repository setup itself is done, but the plan adds two CPU-only preflights that 
 before any Phase 1 code is written:
 
 - **Source preflight** (`reports/source-preflight.md`): locate the user-designated Pi sessions,
-  inspect up to ten representative sessions locally, and confirm at least five plausible
+  inspect up to ten representative sessions in Codespaces after private staging, and confirm at least five plausible
   exercises exist across the initial categories. Commit sanitized counts and provenance hashes
   only. If fewer usable tasks exist, stop for a dataset-scope decision rather than pretend a
   Pi-derived corpus exists.
@@ -311,6 +369,8 @@ before any Phase 1 code is written:
   development may use emulation. No paid GPU is needed for this check.
 
 ### Phase 1 — Prove the CPU grader before trusting rewards
+
+**Machine and skill:** Activate the CPU Codespace with `gh-cli-ops`; build and check the whole grader/exercise phase, preserve its results, publish and stop.
 
 **The most important phase in the plan.** Before anything else, build a grader you can actually
 trust, and try to break it.
@@ -366,7 +426,9 @@ known-good means every task inherits an unvalidated measurement instrument.
 
 ### Phase 2 — Prove E4B compatibility and measure the original model
 
-Now rent a GPU — but first confirm the runner still enforces the Phase 1 isolation contract on
+**Machine and skill:** Activate Colab GPU with `colab-ssh-setup`; finish compatibility and baseline measurements, save the evidence, publish through the GH workflow and stop Colab.
+
+Now activate the chosen Colab GPU runtime — but first confirm the runner still enforces the Phase 1 isolation contract on
 that host, and that the host is not allowed to proceed if it cannot. Then:
 
 - pin the exact upstream checkpoint and tokenizer revision, plus precision, template, thinking
@@ -402,7 +464,9 @@ The phase ends with a baseline weakness report, and the GPU is released.
 
 ### Phase 3 — Build reviewed tasks from raw Pi evidence (CPU)
 
-Now, and only now, look at your Pi session logs and build real tasks. The plan is unusually strict
+**Machine and skill:** Activate the CPU Codespace with `gh-cli-ops`; finish dataset construction and its audit, save the private dataset, publish sanitized results and stop.
+
+Return to the Pi logs for full task construction, building on the small Phase 0 source audit. The plan is unusually strict
 about provenance, because a session log contains a lot of things that are *not* correctness
 evidence.
 
@@ -438,6 +502,8 @@ imitate.
 
 ### Phase 4 — Screen training difficulty with the untouched policy
 
+**Machine and skill:** Activate Colab GPU with `colab-ssh-setup`; complete screening and grading, save its evidence, publish through the GH workflow and stop Colab.
+
 Before spending money on a long run, find out whether the tasks are *learnable*. Use the
 untouched original model to generate eight candidates per training prompt and look at:
 
@@ -461,6 +527,8 @@ an explicitly halted infrastructure failure, and the latter never counts as a lo
 response.
 
 ### Phase 5 — Freeze the CPU release and the decision rule
+
+**Machine and skill:** Activate the CPU Codespace with `gh-cli-ops`; finish packaging, freeze decisions and restore checks, save the release, publish the handoff and stop.
 
 Everything becomes immutable, and an external machine must be able to reconstruct one exact
 experiment from the pushed commit plus hashed artifacts.
@@ -491,6 +559,8 @@ create a new versioned run.
 
 ### Phase 6 — Train a short pilot and prove recovery
 
+**Machine and skill:** Activate Colab GPU with `colab-ssh-setup`; finish the pilot, recovery test and validation comparison, save checkpoints, publish through the GH workflow and stop Colab.
+
 Start from the original policy with fresh adapters, generate on-policy candidates, and score them
 with the frozen external grader. No fixed Pi responses are substituted for real rollouts.
 
@@ -511,6 +581,8 @@ documented research decision.
 
 ### Phase 7 — Run the bounded main experiment
 
+**Machine and skill:** Activate Colab GPU with `colab-ssh-setup`; finish the bounded main run and checkpoint selection, save recovery artifacts, publish through the GH workflow and stop Colab.
+
 The real run, under the frozen ceilings. Periodically validate and upload recovery checkpoints.
 Stop honestly on invalid rewards, numerical failures, persistent scoring outages, or functional
 regressions — and classify interruptions as interruptions rather than quietly dropping the
@@ -519,6 +591,8 @@ affected steps.
 Select one checkpoint **using validation only**. Never pick by final-test performance.
 
 ### Phase 8 — Evaluate unseen behavior and close the loop
+
+**Machine and skill:** Activate Colab for the final model comparisons and any export checks, save outputs, publish the GPU evidence checkpoint and stop its GPU. Then activate Codespaces through `gh-cli-ops` to finish the report/reproducibility handoff, publish and stop the CPU workspace.
 
 Run the original and the selected policy on the frozen held-out tasks, under identical backend,
 precision, template, thinking mode, and decoding settings, with equal generation budgets. Score
@@ -568,7 +642,8 @@ for your own judgment:
 | One script per exercise, five exercises first, then ~20 diagnostics, then 50–100 | Feasibility sizes, not statistical guarantees — five perfect tasks beat fifty shaky ones |
 | Initial scope: file selection/quoting, text transforms, short script repair | Keeps tasks reconstructible and verifiable; defers network, clock, and multi-turn complexity |
 | Finish each phase's CPU preparation before renting GPU | Money and time; also the CPU work *gates* the GPU work |
-| Provider, isolation capability, artifact storage, spend limits resolved before provisioning | No paid resources on assumptions |
+| Codespaces for CPU, Colab for GPU; resources, isolation, storage and limits checked before activation | A preferred provider still needs a compatible, budgeted runtime |
+| Activate, execute the whole phase, save, commit/push, stop | Connecting to a machine alone does not complete a phase |
 | Every milestone ends with evidence, STATE.md update, explicit-path commit, push, remote verification | "It worked on my machine" is not a result |
 | Freeze model/template/precision, splits, grader, and budgets per experiment | A silent change mid-run makes the result uninterpretable |
 | The Gemma 3 notebook is a conceptual reference only | It is a Gemma 3/GSM8K tutorial, not a tested Gemma 4 environment; its pins and reward hacks are not to be copied |
@@ -617,10 +692,12 @@ on counting independent clusters is designed to prevent exactly that.
 ## 10. Where to start, concretely
 
 Phase 0's repository setup is done; what comes next is its two preflights, then the Phase 1
-specification. All of it is CPU-only and cheap:
+specification. Start by activating the CPU Codespace with `gh-cli-ops`, after confirming its
+account, resources, storage and spending limit. CPU-only does not mean free. Then:
 
-1. **Run the source preflight.** Locate the user-designated Pi sessions, inspect up to ten
-   representative sessions locally, and check that at least five plausible exercises exist
+1. **Run the source preflight.** Select the user-designated Pi sessions on the controller and
+   stage only the authorized sample privately outside Git in Codespaces. Inspect up to ten
+   representative sessions there and check that at least five plausible exercises exist
    across the initial categories. Record schema versions, available command/tool evidence,
    missing filesystem state, reconstruction effort, and exclusions in
    `reports/source-preflight.md` — sanitized counts and provenance hashes only. If the source
@@ -644,7 +721,8 @@ specification. All of it is CPU-only and cheap:
 5. **Then** scale to ~20 diagnostics, and only after that think about GPU work.
 
 The preflights and all of Phase 1 are CPU-only. No GPU is needed yet, and nothing is blocked on
-the pending GPU provider/storage decisions.
+GPU accelerator selection. Private source access and CPU storage must be ready before the
+preflight; durable GPU artifact storage must be ready before Phase 2.
 
 ---
 

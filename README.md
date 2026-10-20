@@ -12,7 +12,9 @@ Improve shell scripting with direct GRPO starting from the original Gemma 4 E4B 
 
 ## Compute approach
 
-CPU machines handle log processing, fixtures, verifiers, sandbox execution, dataset packaging, and reporting. GPUs handle model compatibility, baseline generation, screening, GRPO, and final model evaluation. GPU workers also need CPU resources for grading.
+CPU phases prioritize **GitHub Codespaces through `gh-cli-ops`**. GPU phases prioritize **Google Colab through `colab-ssh-setup`**; GPU workers also use CPU cores for restricted grading. Phase 8 uses Colab for evaluation and Codespaces for reporting. `modal-deploy-ssh` is an explicitly selected fallback.
+
+Every phase includes machine activation/reconnection, restoration of the recorded source and artifacts, execution of all phase tasks/checks, private artifact preservation, a reviewed Git commit/push through `gh-cli-ops`, and verified machine shutdown. The local controller coordinates workers and is the default GitHub writer. See PLAN.md and docs/HANDOFF.md for the lifecycle, and the beginner's guide for a plain-language walkthrough.
 
 The proposed fast stack is Unsloth + TRL with fresh LoRA adapters for direct GRPO. Establish the documented Unsloth inference path first; accelerated rollout generation is conditional on compatibility and parity evidence. Exact package versions, model revision, GPU, and training settings will be frozen after a GPU compatibility experiment. The supplied Gemma 3 notebook is a conceptual reference, not a tested Gemma 4 environment.
 

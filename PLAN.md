@@ -4,7 +4,7 @@
 
 **Goal:** Test whether direct GRPO from the original Gemma 4 E4B instruction checkpoint improves shell scripting on unseen, verifiable tasks informed by Pi logs.
 
-**Architecture:** CPU work discovers tasks, constructs fixtures, checks graders, and packages evidence. A temporary GPU worker generates candidates and trains the policy; its local CPU resources may grade scripts, so no distributed grading service is required. Pushed Git commits plus verified external artifacts preserve state between machines.
+**Architecture:** The local controller orchestrates CPU work in GitHub Codespaces through `gh-cli-ops` and GPU work in Google Colab through `colab-ssh-setup`. A GPU worker may use its own CPU cores for restricted grading; no distributed grading service is required. Each phase includes machine activation, full phase execution, evidence collection, durable artifact preservation, Git publication and verified shutdown. Pushed Git commits plus verified private artifacts connect machines.
 
 **Tech Stack:** Python, uv, pytest, JSONL, Bash/GNU utilities in a digest-pinned restricted Linux image, Git/GitHub, proposed Unsloth + TRL + fresh LoRA adapters. Pin a tested GPU environment after compatibility evidence. Begin with the documented Unsloth inference path; accelerated generation is optional.
 
@@ -35,21 +35,43 @@
 - Cross-candidate state, different fixtures within a GRPO group, verifier tampering and infrastructure errors: Phase 1 isolation and Phase 2 reward alignment probes.
 - Lost optimizer/RNG/data/fixture state on another machine: Phase 6 restoration experiment before Phase 7.
 
+## Skill orchestration contract
+
+The user-selected priority is **CPU → GitHub Codespaces through `gh-cli-ops`**, **GPU → Google Colab through `colab-ssh-setup`**. `gh-cli-ops` also governs GitHub identity/repository checks and publication for every phase. `modal-deploy-ssh` is a fallback only after an explicit provider decision; never switch or allocate extra resources silently. These are agent-operated runbooks, not a new scheduling service.
+
+The controller resolves the installed skills by name, reads their current instructions, and records skill/script versions or hashes in the run manifest. Local absolute skill paths and SSH configuration are machine-specific and are not required on every remote worker. Before executing a phase, check current CLI help/features and use Context7 for provider/library decisions; old skill version and pricing examples are not guarantees.
+
+**Mandatory lifecycle, inherited by every phase:**
+
+1. **Read state and check readiness:** verify prerequisites, source Git SHA, artifact hashes, authentication, selected resources, session identity, duration/spend ceiling and output storage. Confirm the Colab session name before first provisioning as its skill requires. Source access and storage capacity must be ready before moving private material.
+2. **Activate the machine with the assigned skill:** inspect existing sessions first, reconnect/start the suitable one, or create one only when needed. For CPU use Codespaces; for GPU use a named Colab runtime. Record the actual provider-generated ID, SSH target, workspace and hardware. Do not treat an alias as proof of a live machine.
+3. **Restore and execute the entire phase:** verify the clean worker checkout at the recorded SHA, restore the locked environment and private artifacts, then run every task and acceptance check listed for that phase. A successful SSH login is not phase completion. User-designated source files may be staged privately from the controller, with hashes, outside tracked paths.
+4. **Preserve and publish:** save reports and, where relevant, full training recovery state; verify a private durable copy independent of the active runtime. Collect sanitized results on the controller, update STATE.md/manifests, commit explicit paths, push, and verify the remote SHA with the `gh-cli-ops` workflow. The controller is the default GitHub writer; credentials remain outside the candidate grader.
+5. **Stop and hand off:** stop the Codespace or Colab runtime using its skill workflow, verify the provider reports it stopped, and record the next action and stop evidence. After verified shutdown, the controller publishes a small state-only closeout commit containing sanitized stop evidence; the phase is complete only when this final state checkpoint is synchronized. GPU phases release their GPU before later CPU reporting. Stop Codespaces rather than delete them by default; retained storage still needs capacity/retention monitoring.
+
+Record interrupted work as interrupted, including its latest verified checkpoint and actual live/stopped/unknown machine state. A disconnect first triggers a status check and reconnect attempt; never duplicate a possibly running job. On provider loss restore verified artifacts; do not assume `/content`, a Codespace disk, or a Modal mount alone is a complete recovery record. Enforce the agreed spending ceiling and emergency persistence procedure even when publication fails.
+
+Both Codespaces and Colab must pass the runner-capability contract. Their SSH login environment is not the candidate-script sandbox. If the preferred provider cannot meet memory, duration or isolation requirements, record the failure and decide whether the Modal fallback is eligible before launching it; an incompatible grader never falls back to unrestricted execution.
+
 ## Phase map and acceptance evidence
 
-| Phase | Compute | Result and evidence needed to advance |
+| Phase | Compute / skill to activate | Entire-phase work after activation |
 |---|---|---|
-| 0 | CPU | Public planning repo; preflight source audit and next action recorded |
-| 1 | CPU | Trustworthy grader; five full exercises, then small diagnostic suite |
-| 2 | GPU + CPU | E4B stack actually updates parameters; untouched baseline diagnoses real weaknesses |
-| 3 | CPU | Reviewed Pi-derived task bank with provenance and grouped splits |
-| 4 | GPU + CPU | Measured training difficulty and useful within-group reward variation |
-| 5 | CPU | Immutable task release and predeclared experiment/recovery configuration |
-| 6 | GPU + CPU | Short direct-GRPO pilot, verified resume, promising validation behavior |
-| 7 | GPU + CPU | Budgeted main run; validation-selected, durably stored checkpoint |
-| 8 | GPU + CPU | Matched unseen-task comparison and reproducible final handoff |
+| 0 | CPU Codespace / `gh-cli-ops` | Complete source/runtime preflights and record readiness evidence |
+| 1 | CPU Codespace / `gh-cli-ops` | Implement and verify grader, five exercises and diagnostic suite |
+| 2 | Colab GPU / `colab-ssh-setup` | Prove E4B compatibility, shared train/evaluate paths and untouched baseline |
+| 3 | CPU Codespace / `gh-cli-ops` | Build, review, split and audit the Pi-derived task bank |
+| 4 | Colab GPU / `colab-ssh-setup` | Execute screening, grade candidates and apply readiness thresholds |
+| 5 | CPU Codespace / `gh-cli-ops` | Freeze dataset/configuration, restore artifacts and prepare GPU handoff |
+| 6 | Colab GPU / `colab-ssh-setup` | Run pilot, prove recovery, compare validation and record proceed/revise decision |
+| 7 | Colab GPU / `colab-ssh-setup` | Execute bounded main run, validate and preserve selected checkpoint |
+| 8 | Colab GPU then CPU Codespace / both skills | Execute matched evaluation on Colab; complete analysis/release reporting on Codespaces |
+
+Every row includes the mandatory lifecycle above: activate → restore → execute full phase → verify → preserve → commit/push → stop → publish shutdown evidence. Phase 8 completes both machines' relevant work and shutdowns before final closeout.
 
 ### Phase 0 — Repository and evidence contract
+
+**Machine activation and full execution:** Activate/reconnect the CPU Codespace with `gh-cli-ops`; complete both preflights there using a privately staged, user-designated source sample, then publish sanitized evidence and stop the Codespace. Repository setup is already complete.
 
 **Files:** README.md, PLAN.md, STATE.md, AGENTS.md, docs/DESIGN.md, docs/HANDOFF.md, .gitignore; preflight evidence in `reports/source-preflight.md` and `reports/runtime-capabilities.md`.
 
@@ -57,12 +79,14 @@
 - [x] Commit, push and verify the initial planning checkpoint.
 - [x] Review the deeper measurement and recovery contract in this revision; verify publication separately after committing.
 
-- [ ] Perform a small CPU-only source preflight before Phase 1 implementation: locate user-designated Pi sessions, inspect up to ten representative sessions locally, and identify at least five plausible exercises spanning the initial categories. Record schema versions, available command/tool evidence, missing filesystem state, reconstruction effort, and exclusions in `reports/source-preflight.md`. Commit sanitized counts/provenance hashes only. If fewer usable tasks exist, stop for a dataset-scope decision rather than claim a Pi-derived corpus exists.
-- [ ] Define the runner's host requirements before selecting an engine: Linux architecture, namespaces/resource limits, unprivileged execution, fixture/result transport, external verifier access, and availability on candidate GPU host types. Use a pinned Linux/amd64 grading image as the initial cross-machine target; macOS development may use emulation. Record capability/transport decisions in `reports/runtime-capabilities.md`, record image digest per architecture, and run fixture parity checks if this target changes. No paid GPU is required for this capability check.
+- [ ] Perform a small CPU-only source preflight before Phase 1 implementation: locate user-designated Pi sessions, inspect up to ten representative sessions in the CPU Codespace after private staging, and identify at least five plausible exercises spanning the initial categories. Record schema versions, available command/tool evidence, missing filesystem state, reconstruction effort, and exclusions in `reports/source-preflight.md`. Commit sanitized counts/provenance hashes only. If fewer usable tasks exist, stop for a dataset-scope decision rather than claim a Pi-derived corpus exists.
+- [ ] Define the runner's host requirements before selecting an engine: Linux architecture, namespaces/resource limits, unprivileged execution, fixture/result transport, external verifier access, and availability on GitHub Codespaces and candidate Colab GPU runtimes; record whether a Modal fallback would be compatible. Use a pinned Linux/amd64 grading image as the initial cross-machine target; macOS development may use emulation. Record capability/transport decisions in `reports/runtime-capabilities.md`, record image digest per architecture, and run fixture parity checks if this target changes. No GPU allocation is required for the initial capability contract; verify actual Colab capabilities when Phase 2 activates the GPU runtime.
 
 **Gate:** Repository setup is complete; source feasibility and host-capability preflight remain unstarted. Reuse the existing public repo. Phase 1 code begins after these two preflight decisions and the five-exercise contract below are recorded.
 
 ### Phase 1 — Prove the CPU grader before trusting rewards
+
+**Machine activation and full execution:** Activate/reconnect the CPU Codespace with `gh-cli-ops`; execute the full grader/exercise/diagnostic phase, verify its gate, preserve results, publish the milestone and stop the Codespace.
 
 **Files:** `pyproject.toml`, `src/shell_grpo/{contracts,runner,fixtures,verifiers,rewards}.py`, `configs/runner.yaml`, `containers/grader/Dockerfile`, `tests/test_runner.py`, `tests/test_rewards.py`, `data/examples/diagnostics.jsonl`.
 
@@ -101,9 +125,11 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 
 ### Phase 2 — Prove E4B compatibility and measure the original model
 
+**Machine activation and full execution:** Activate/reconnect the named Colab GPU runtime with `colab-ssh-setup`; complete compatibility and baseline work, preserve its locks/rollouts/evidence, publish through `gh-cli-ops` and stop Colab.
+
 **Files:** `configs/{model,baseline}.yaml`, `scripts/check_compatibility.py`, `src/shell_grpo/{generate,evaluate,train,manifests}.py`, `scripts/evaluate.py`, `environments/gpu.lock`, `reports/baseline-diagnostics.md`.
 
-- [ ] Resolve GPU host, spending/time ceiling and private durable storage. Verify the host supports the Phase 1 runner before loading weights.
+- [ ] Use Colab as the first GPU provider; resolve accelerator, confirmed session name, spending/time ceiling and private durable storage. Verify the host supports the Phase 1 runner before loading weights.
 - [ ] Map the deployment alias/digest to a precise upstream training checkpoint/tokenizer revision. Record precision, template, thinking mode, limits and decoding settings. Verify a fresh adapter does not change the initial baseline beyond documented numeric tolerance.
 - [ ] Introduce minimal shared `generate.py`, `evaluate.py` and `train.py` entry points now. Baseline, screening, pilot and main runs reuse their output extraction, task iteration, generation settings and scoring failure protocol. The compatibility probe uses the same training path as the later pilot, with tiny limits. Follow the documented conservative Unsloth/TRL path first. On a few diagnostics, demonstrate finite gradients, a nonzero trainable-parameter update, correct prompt/candidate/reward alignment, and adapter save/reload. Do not use an SFT adapter.
 - [ ] Check all candidates in a prompt group receive identical fixture seeds on independent copies. Record generation/grading wall time, peak VRAM and CPU utilization; select hardware from measurements, not model-name size alone.
@@ -113,6 +139,8 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 **Gate:** A tested lock and original-model weakness report exist. Unsupported stack combinations halt here. Upload/verify evidence, commit/push the report, then release GPU resources.
 
 ### Phase 3 — Build reviewed tasks from raw Pi evidence on CPU
+
+**Machine activation and full execution:** Activate/reconnect the CPU Codespace with `gh-cli-ops`; complete source extraction, task construction, checks, splits and audit, preserve the private dataset, publish sanitized evidence and stop the Codespace.
 
 **Files:** `src/shell_grpo/{pi_sessions,task_builder,splits}.py`, `tests/test_pi_sessions.py`, `tests/test_splits.py`, `configs/dataset.yaml`, `reports/dataset-audit.md`.
 
@@ -127,6 +155,8 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 
 ### Phase 4 — Screen training difficulty with the untouched policy
 
+**Machine activation and full execution:** Activate/reconnect Colab GPU with `colab-ssh-setup`; run all screening and grading, preserve candidate/selection evidence, publish through `gh-cli-ops` and stop Colab.
+
 **Files:** `scripts/screen_tasks.py`, `configs/screening.yaml`, `reports/screening.md`.
 
 - [ ] Restore the Phase 2 runtime and Phase 3 data. Start with eight candidates per training prompt; candidates share fixture seeds but receive fresh state.
@@ -136,6 +166,8 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 **Gate:** The predeclared informative-task proportion, family count, category coverage and scoring coverage are met. Every attempted candidate has a scored outcome or an explicitly halted infrastructure failure; the latter does not count as a low-reward response. Otherwise revise tasks or runtime before training. Upload/verify evidence, commit/push, then release GPU resources.
 
 ### Phase 5 — Freeze the CPU release and decision rule
+
+**Machine activation and full execution:** Activate/reconnect the CPU Codespace with `gh-cli-ops`; complete packaging, configuration freeze and restoration checks, preserve the release, publish its manifest/handoff and stop the Codespace.
 
 **Files:** `scripts/package_dataset.py`, `configs/grpo-{pilot,main}.yaml`, `manifests/dataset-v1.json`, `reports/dataset-card.md`.
 
@@ -152,6 +184,8 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 
 ### Phase 6 — Train a short pilot and prove recovery
 
+**Machine activation and full execution:** Activate/reconnect Colab GPU with `colab-ssh-setup`; execute the full pilot, interruption/recovery demonstration and validation comparison, preserve checkpoints, publish through `gh-cli-ops` and stop Colab.
+
 **Files:** Extend Phase 2's `src/shell_grpo/train.py`; add `src/shell_grpo/checkpointing.py`, `scripts/restore_run.py`, `reports/pilot.md`.
 
 - [ ] Start from the original policy with fresh adapters and generate on-policy candidates. Use the frozen external grader; no fixed Pi responses are substituted for model rollouts.
@@ -163,6 +197,8 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 
 ### Phase 7 — Run the bounded main experiment
 
+**Machine activation and full execution:** Activate/reconnect Colab GPU with `colab-ssh-setup`; execute the complete bounded main run and validation selection, preserve full recovery state, publish through `gh-cli-ops` and stop Colab.
+
 **Files:** `manifests/runs/<run-id>.json`, `reports/training.md`; checkpoint and rollout payloads remain external.
 
 - [ ] Declare original-policy restart or exact pilot-checkpoint continuation, with parent run and source SHA. Recheck data/runtime hashes before training.
@@ -172,6 +208,8 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 **Gate:** A recoverable checkpoint and validation-based selection record exist within budget. Verify artifacts, commit/push the results/state checkpoint, then release GPU resources.
 
 ### Phase 8 — Evaluate unseen behavior and close the loop
+
+**Machine activation and full execution:** Activate Colab GPU with `colab-ssh-setup` for all final inference/evaluation/export checks; preserve its outputs, publish the GPU submilestone through `gh-cli-ops`, and stop it. Activate the CPU Codespace with `gh-cli-ops` for final analysis, model/release documentation and reproducibility checks; publish the final handoff and stop the Codespace.
 
 **Files:** Reuse Phase 2's `scripts/evaluate.py` and evaluator; add `scripts/export_model.py`, `reports/{final-evaluation,model-card}.md`, `manifests/release-v1.json`.
 
@@ -184,7 +222,7 @@ For multi-fixture exercises, specified expected nonzero exits (such as invalid a
 
 ## Current next action
 
-Phase 0 repository setup is complete and the repository is public. Next: perform the small Pi source and runtime-capability preflight, then specify the five Phase 1 exercises, schemas, reward examples and failure protocol before implementing the CPU grader. No source audit, grader implementation, GPU compatibility experiment or training has been performed by updating this roadmap.
+Phase 0 repository setup is complete and the repository is public. Next: activate/reconnect the CPU Codespace through `gh-cli-ops` once access, machine resources and budget are recorded; perform the small Pi source and runtime-capability preflight, then specify the five Phase 1 exercises, schemas, reward examples and failure protocol before implementing the CPU grader. No source audit, grader implementation, GPU compatibility experiment or training has been performed by updating this roadmap.
 
 ## Review-gap closure map
 

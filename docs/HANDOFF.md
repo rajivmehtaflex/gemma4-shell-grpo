@@ -1,5 +1,22 @@
 # CPU/GPU handoff and recovery
 
+## Skill routing and phase ownership
+
+CPU phases 0, 1, 3 and 5 use GitHub Codespaces through `gh-cli-ops`. GPU phases 2, 4, 6 and 7 use Google Colab through `colab-ssh-setup`. Phase 8 uses Colab for model evaluation, then Codespaces for analysis and reporting. Every phase activates its assigned machine and executes all tasks and acceptance checks, rather than stopping after SSH setup. `gh-cli-ops` publishes every milestone. `modal-deploy-ssh` is an explicitly selected fallback, not the default.
+
+The local controller is the default GitHub writer. Worker code starts from a pushed source SHA; sanitized outputs and any reviewed source changes return to the controller for the results/state commit. A worker may write its own result branch only when that ownership is explicitly recorded and scoped authentication is established. Do not duplicate writers or copy controller credentials into candidate environments.
+
+## Provider-specific activation and shutdown
+
+- **Codespaces:** verify the active GitHub identity and repository, list suitable existing Codespaces, and connect/start the selected one by its actual ID; create only when needed with recorded machine type, inactivity timeout, retention and spending limits. Use the skill's `gh codespace` workflow. Restore the correct source commit, complete the entire CPU phase, collect results, commit/push and verify, then stop the Codespace and verify its state. Stopping is not deletion; retained storage remains subject to retention/billing policies and is not the sole artifact copy.
+- **Colab:** confirm the session name before first creation. Resolve the actual CLI binary, version and `ssh --proxy-mode` support rather than assuming a package/version from an old example; use ADC authentication, a supported SSH key and the skill's cleared-PYTHONPATH bridge. Activate the selected GPU, record actual hardware, and verify grading isolation before running model work. Coordinate the skill's single-active-SSH constraint with IDE/transfer access. Complete the whole phase, export and verify private artifacts, publish the results checkpoint, then explicitly stop the named runtime and verify its state. `/content` is temporary; disconnecting SSH is not proof that the runtime stopped.
+- **Modal fallback:** use `modal-deploy-ssh` only after recording the fallback decision and resource ceiling. Inspect status before launching; never duplicate a live named app. Record app/sandbox identity, renewed SSH endpoint and volume. `/workspace` may persist while the root filesystem and processes do not. Use the volume-version-appropriate persistence operation and verify a read-back outside the active worker before relying on saved data. Stop by the skill's app-ID workflow and verify shutdown; never delete its volume automatically.
+
+Keep live SSH endpoints, credential details and sensitive session identifiers in the controller's private session record. Public Git manifests carry sanitized identifiers/hashes and shutdown evidence.
+
+All providers must satisfy the same Linux grading contract. Authenticated SSH into a worker does not by itself provide candidate isolation. Re-provisioning an environment is separate from restoring checkpoint/data state.
+
+
 ## Before leaving any machine
 
 1. Finish a coherent milestone or record it as interrupted. Capture verification results and the next action in STATE.md.
@@ -7,7 +24,7 @@
 3. For training, save the full recovery state described in DESIGN.md. A saved adapter alone is not a training resume checkpoint.
 4. Inspect `git status`, `git diff`, and the staged diff. Stage explicit paths; commit code/configs/manifests/state together. Do not stage raw logs or credentials.
 5. Push the branch. Verify local HEAD equals the remote branch and record branch/SHA in the handoff message. A later evidence commit can reference an earlier run's source SHA.
-6. Release the GPU only after the checkpoint/artifact upload and Git push are verified. On failure, retain the local recovery evidence and report the blocker.
+6. Stop the phase's Codespace or Colab runtime after the checkpoint/artifact copy and Git push are verified; record the provider's stopped-state evidence. From the controller, publish and verify a small state-only closeout commit with sanitized stop evidence; only then mark the phase complete. Release GPU resources before later CPU reporting. On failure, retain the local recovery evidence and report the blocker.
 
 Commit at a coherent milestone, not every training step. Checkpoints may be more frequent than commits; each refers to the immutable run source SHA. A result commit records the verified checkpoint URI and step. If a push/upload fails, label the handoff incomplete and preserve its recoverable state. Do not leave paid compute running indefinitely: follow the run's previously chosen emergency durable-storage procedure and spending ceiling, and report any unrecoverable gap explicitly.
 
@@ -30,6 +47,10 @@ In Phase 6, train a few optimizer steps on the tiny diagnostic subset. Persist t
 | Field | Purpose |
 |---|---|
 | Phase, status, next action | Continuation point |
+| Skill identifier/revision or script hash | Exact lifecycle instructions used |
+| Provider, actual session ID, SSH target and workspace | Reconnect to the right worker |
+| Requested/actual resources, timeout and stop evidence | Resource accounting and verified shutdown |
+| Controller and Git writer identity | Single-writer ownership |
 | Branch, source Git SHA, results commit | Code and evidence provenance |
 | Run ID and parent run | Experiment lineage |
 | Model/tokenizer revision and template/thinking config | Starting policy identity |
@@ -44,6 +65,6 @@ In Phase 6, train a few optimizer steps on the tiny diagnostic subset. Persist t
 
 ## Repository workflow
 
-Use one writer per branch. Before a GPU handoff, push the CPU milestone; the GPU worker fetches that exact source commit and runs it. Persist artifacts and push a results/state commit from the GPU checkout before returning to CPU work. Fetch that commit on CPU before making dependent changes. Parallel experiments use distinct branches and run IDs.
+Use one writer per branch. Before a GPU handoff, the controller pushes the CPU milestone; the Colab worker fetches that exact source commit and runs it. The worker preserves private artifacts and returns sanitized results to the controller, which reviews and pushes the results/state commit before dependent CPU work. Fetch that published commit in the Codespace before continuing. If worker-side publication is explicitly selected, record its writer and result branch first. Parallel experiments use distinct branches and run IDs.
 
 Neither an ephemeral GPU filesystem nor Git history alone is the complete project state. Resume requires both the Git checkpoint and the verified external artifacts.
