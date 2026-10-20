@@ -16,21 +16,26 @@ no training has run. No Codespace, Colab runtime or Modal session has been activ
 includes starting or reconnecting to its machine, doing the whole phase, saving the results,
 committing/pushing its milestone, and stopping the machine. Section 4 explains this workflow.
 
+**Where tasks come from:** start with authored exercises in Phases 0/1. Audit available Pi
+sessions before Phase 3; use Pi-derived additions only if that audit supports them. An
+authored-only task bank is the already selected fallback, so Pi availability does not block
+the initial CPU grader work.
+
 ---
 
 ## 1. The one-sentence version
 
 > Train Google's Gemma 4 E4B model to write better Bash scripts, by letting it try thousands of
 > scripts, automatically scoring each one by actually running it, and adjusting the model so that
-> the scripts which scored well become more likely — while proving, with statistics, that the model
-> genuinely got better on tasks it never saw during training.
+> the scripts which scored well become more likely — while measuring, with a controlled comparison,
+> whether the model improves on tasks it never saw during training.
 
 Three ideas carry the whole project:
 
 1. **Score by doing, not by asking.** A candidate script is judged by *executing it* and checking
    its behavior, never by asking another AI "is this good?"
-2. **Trust the instrument before using it.** The grader is built and attacked (Phase 1) *before*
-   any task data exists (Phase 3) and *before* any training happens (Phase 6).
+2. **Trust the instrument before using it.** Build and challenge the grader with authored
+   exercises (Phase 1) before expanding the task bank (Phase 3) or training (Phase 6).
 3. **A believable result needs a controlled comparison.** The trained model is compared against
    the untouched original under identical conditions, with a confidence interval, and a negative
    result is an acceptable outcome.
@@ -307,10 +312,10 @@ it at the budget deadline.
 
 | Phase | Machine activation skill | What the assistant completes there |
 |---|---|---|
-| 0 | `gh-cli-ops` → CPU Codespace | Source sample audit and runtime capability preflight |
+| 0 | `gh-cli-ops` → CPU Codespace | Runtime, storage and orchestration readiness checks |
 | 1 | `gh-cli-ops` → CPU Codespace | Grader, five exercises, diagnostic checks |
 | 2 | `colab-ssh-setup` → Colab GPU | Compatibility proof and original-model baseline |
-| 3 | `gh-cli-ops` → CPU Codespace | Pi-derived task construction, checks, splits and audit |
+| 3 | `gh-cli-ops` → CPU Codespace | Pi source audit; authored or mixed-source task construction, checks and splits |
 | 4 | `colab-ssh-setup` → Colab GPU | Candidate generation, grading and difficulty screening |
 | 5 | `gh-cli-ops` → CPU Codespace | Frozen dataset/configuration and GPU handoff |
 | 6 | `colab-ssh-setup` → Colab GPU | Pilot, recovery demonstration and validation comparison |
@@ -375,9 +380,9 @@ deliberate.
 
 ## 6. The nine phases, in plain language
 
-### Phase 0 — Repository and evidence contract · *setup complete; preflights, storage and smoke checks unstarted*
+### Phase 0 — Repository and evidence contract · *setup complete; readiness checks unstarted*
 
-**Machine and skill:** Use `gh-cli-ops` to activate the CPU Codespace, finish both preflights there, save their evidence, publish the milestone and stop the workspace. Repository creation itself is already done.
+**Machine and skill:** Use `gh-cli-ops` to activate the CPU Codespace, finish the runtime, storage and orchestration checks, save their evidence, publish the milestone and stop the workspace. Repository creation itself is already done; no Pi-source sample is needed in this phase.
 
 Create the repo, the planning documents, the state ledger, and the handoff rules, and push them
 so a second machine can pick the work up. The rule for this project is that *state lives in Git
@@ -385,14 +390,10 @@ plus hashed external artifacts*, never in one machine's disk. The repository was
 and is now public at the user's request; raw data and checkpoints stay out of Git regardless of
 visibility.
 
-Repository setup itself is done, but the plan adds two CPU-only preflights that must be recorded
-before any Phase 1 code is written:
+Repository setup itself is done. Before Phase 1 implementation, record the CPU runtime contract
+and the storage/orchestration evidence below. The Pi source audit belongs before Phase 3 task
+construction and does not gate Phase 1.
 
-- **Source preflight** (`reports/source-preflight.md`): locate the user-designated Pi sessions,
-  inspect up to ten representative sessions in Codespaces after private staging, and confirm at least five plausible
-  exercises exist across the initial categories. Commit sanitized counts and provenance hashes
-  only. If fewer usable tasks exist, stop for a dataset-scope decision rather than pretend a
-  Pi-derived corpus exists.
 - **Runtime capability contract** (`reports/runtime-capabilities.md`): define the grading
   runner's host requirements — architecture, namespaces and resource limits, unprivileged
   execution, fixture/result transport, external verifier access — *before* choosing a container
@@ -457,12 +458,19 @@ ambiguous:
 
 Two contract details matter as much as the exercises. First, the result is a typed schema —
 `TaskRecord` and `GradeResult`, specified in `contracts.py` before any runner code — with the
-five execution statuses above, per-fixture aggregation by declared weights, and any critical
-violation zeroing the whole task. Second, the scoring failure protocol: a broken candidate
-scores zero, but a genuine infrastructure error retries the exact same saved script and fixture
-up to two more times; if it still fails, the entire group is invalidated, persisted, and the run
-halts for repair. The policy is never updated while a group is partially scored, and candidates
-are never silently dropped or replaced.
+five execution statuses above recorded for each fixture and for the task. A candidate error
+contributes zero for its fixture; correctly scored fixtures can still earn partial reward.
+Aggregate status uses this priority: `infrastructure_error`, `invalid_script`, `resource_limit`,
+`runtime_error`, `ok`. Thus a script that runs on one fixture and crashes on another can have
+status `runtime_error` and partial reward. Status describes execution; checks describe correctness.
+
+An unresolved infrastructure error makes the task unscorable. Retry the exact same saved script
+and fixture up to two more times; if it still fails, persist and invalidate the entire group and
+halt for repair. Once every fixture is scored, any task-critical violation or no required
+functional progress on the nonempty fixtures makes task reward zero. Passing an empty fixture
+alone cannot reward a no-op. Full reward requires every required check to pass. The policy is
+never updated while a group is partially scored, and candidates are never silently dropped or
+replaced. Exact weights and boundary-case reward examples are specified before implementation.
 
 Only after five exercises pass all of that do you scale to roughly twenty diagnostics covering
 the three initial families: local file selection and quoting, deterministic text transformations,
@@ -517,13 +525,24 @@ these known quirks are separated from genuine failures.
 
 The phase ends with a baseline weakness report, and the GPU is released.
 
-### Phase 3 — Build reviewed tasks from raw Pi evidence (CPU)
+### Phase 3 — Audit sources and build the reviewed task bank (CPU)
 
 **Machine and skill:** Activate the CPU Codespace with `gh-cli-ops`; finish dataset construction and its audit, save the private dataset, publish sanitized results and stop.
 
-Return to the Pi logs for full task construction, building on the small Phase 0 source audit. The plan is unusually strict
-about provenance, because a session log contains a lot of things that are *not* correctness
-evidence.
+First perform the deferred Pi source audit: privately stage user-designated sessions, inspect
+up to ten representative sessions, and seek at least five plausible exercises across the initial
+categories. Record schema versions, command/tool evidence, missing filesystem state,
+reconstruction effort and exclusions in `reports/source-preflight.md`; publish only sanitized
+counts and provenance hashes. Counting session files alone does not establish usable task yield.
+
+If the corpus is insufficient, continue with authored task construction under the existing
+fallback decision. Skip the Pi parser and raw-log extraction work. If viable Pi material exists,
+use it alongside authored tasks and label their origins honestly. Authored tasks record
+`source: authored` and an authoring rationale; shared templates link them for split grouping.
+Both paths target the measured Phase 2 weaknesses and must pass identical grader checks.
+
+When using Pi material, the plan is strict about provenance because a session log contains many
+things that are not correctness evidence.
 
 What counts as raw evidence: the session JSONL branch, the original user requirements, the exact
 commands and their arguments, the tool outputs, the source model and runtime settings, and the
@@ -674,8 +693,9 @@ for your own judgment:
 1. **What would a specialist add?** Establish the baseline and challenge the grader before
    optimizing; distinguish runtime defects from model weaknesses; predeclare the comparison and
    stopping rules; demonstrate restoration before a long run.
-2. **What raw material comes first?** The Pi JSONL entries and branch IDs, original requests,
-   exact commands and tool outputs, source model settings, and initial files/bytes/modes.
+2. **What raw material comes first?** For authored exercises: the explicit task brief, initial
+   files/bytes/modes and independently checked expected behavior. For Pi additions: JSONL entries
+   and branch IDs, original requests, exact commands/tool outputs and source model settings.
    Summaries and completed answers suggest tasks but do not prove correctness. Missing original
    state must be reconstructed and labeled, or excluded.
 3. **Which methods and tools?** Branch-aware extraction; reproducible fixtures; reference and
@@ -728,6 +748,19 @@ detection:
 - the paired **95% confidence interval excludes zero**;
 - **no increase** in observed critical violations.
 
+Record three results separately: `effect_label` is `positive_gain`, `regression`, or
+`inconclusive` according to whether the paired interval lies above zero, below zero, or includes
+zero; `target_met` says whether the point estimate reaches the frozen practical target;
+`safety_pass` says whether the observed critical-violation rate did not increase. Report the
+underlying counts and rates too.
+
+Accepted improvement requires a positive gain, the practical target and the safety constraint
+all to pass. For example, a +6-point gain with an interval of +1 to +11 still fails acceptance
+if critical violations increase. A +2-point gain with an interval of +1 to +3 is positive evidence
+below the practical target. A negative interval is a regression. An interval containing zero
+remains inconclusive even if its point estimate exceeds +5 points. See DESIGN.md for the full
+rules; incomplete scoring must be repaired before classifying an outcome.
+
 A small pilot may well remain inconclusive. The plan explicitly says: report the effect estimate
 and the interval instead of expanding scope to force a positive finding. A working trainer is a
 technical success, not proof of model improvement.
@@ -749,10 +782,12 @@ on counting independent components is designed to prevent exactly that.
 
 ## 10. Where to start, concretely
 
-Phase 0's repository setup is done; what comes next is its rehearsal work — storage, workspace
-bootstrap, skill checks, the orchestration smoke test and the two preflights — then the Phase 1
-specification. Start by activating the CPU Codespace with `gh-cli-ops`, after confirming its
-account, resources, storage and spending limit. CPU-only does not mean free. Then:
+Phase 0's repository setup is done; what comes next is storage, workspace bootstrap, skill
+checks, the runtime capability contract and the orchestration smoke test, then the Phase 1
+specification on authored exercises. The `rajivmehtaflex` account, basic 2-core Codespace and
+$10/month ceiling are already recorded in STATE.md. Verify current access, storage capacity
+and deadline/stop readiness before activation through `gh-cli-ops`. CPU-only does not mean free.
+The Pi source audit is deferred until before Phase 3. Then:
 
 1. **Set up and rehearse the workspace.** Claim the private controller-side `artifacts/` folder
    and check its capacity against this phase's planned outputs. Let the first Codespace boot on
@@ -763,16 +798,7 @@ account, resources, storage and spending limit. CPU-only does not mean free. The
    compare → sanitized push → stop → closeout, plus a simulated failed upload and failed push to
    prove partial copies are never treated as verified. Record it all in
    `reports/orchestration-smoke.md`.
-2. **Run the source preflight.** Select the user-designated Pi sessions on the controller and
-   stage only the authorized sample privately outside Git in Codespaces. Inspect up to ten
-   representative sessions there and check that at least five plausible exercises exist
-   across the initial categories. Record schema versions, available command/tool evidence,
-   missing filesystem state, reconstruction effort, and exclusions in
-   `reports/source-preflight.md` — sanitized counts and provenance hashes only. If the source
-   material cannot support five exercises, stop for a dataset-scope decision. *(Deferred under
-   the authored-first decision: this preflight re-runs before Phase 3 rather than gating
-   Phase 1 — see STATE.md.)*
-3. **Record the runtime capability contract.** Write down the grading runner's host requirements
+2. **Record the runtime capability contract.** Write down the grading runner's host requirements
    — architecture, namespaces, resource limits, unprivileged execution, fixture/result
    transport, external verifier access, availability on candidate GPU host types — in
    `reports/runtime-capabilities.md`, *before* picking an engine. The initial cross-machine
@@ -780,19 +806,20 @@ account, resources, storage and spending limit. CPU-only does not mean free. The
    gate opens, research current engine options with exa/Context7: Docker with a digest-pinned
    image, Podman rootless, or `bubblewrap`/`nsjail` with a seccomp profile for a lighter-weight
    sandbox.
-4. **Specify, then implement, the Phase 1 contracts.** Write and review the five exact prompts
+3. **Specify, then implement, the Phase 1 contracts.** Write and review the five exact prompts
    (D01–D05 above), invocation examples, typed `TaskRecord`/`GradeResult` schema examples,
    reward tables, and the scoring failure protocol *before* writing runner code. Then lock a
    CUDA-free CPU environment, fresh per-candidate fixtures, and fixed utility versions, locale,
    and timezone. Do not assume a container freezes the clock; if a task depends on the time,
    define a reference time explicitly.
-5. **Build the five exercises end to end**, with the positive / alternate / wrong / repeatable
+4. **Build the five exercises end to end**, with the positive / alternate / wrong / repeatable
    evidence attached to each.
-6. **Then** scale to ~20 diagnostics, and only after that think about GPU work.
+5. **Then** scale to ~20 diagnostics, and only after that think about GPU work.
 
-The rehearsal, preflights and all of Phase 1 are CPU-only. No GPU is needed yet, and nothing is
-blocked on GPU accelerator selection. Private source access and CPU storage must be ready before
-the preflight; durable GPU artifact storage must be ready before Phase 2.
+The readiness checks and all of Phase 1 are CPU-only. No GPU is needed yet, and nothing is
+blocked on GPU accelerator selection or Pi availability. CPU storage must be ready for Phase 0;
+durable GPU artifact storage must be ready before Phase 2. Private Pi-source access is checked
+when its audit becomes due before Phase 3 task construction.
 
 ---
 

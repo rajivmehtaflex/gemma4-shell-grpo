@@ -1,6 +1,6 @@
 # Project overview
 
-Research repo testing whether direct GRPO (no SFT) from the original Gemma 4 E4B instruction checkpoint improves Bash scripting on held-out, executable-verified tasks informed by Pi session logs. This is currently a planning-only documentation repo: Phase 0 repository setup is complete and the repo is public, but Phase 0's preflights and smoke checks (evidence belongs in `reports/source-preflight.md`, `reports/runtime-capabilities.md`, and `reports/orchestration-smoke.md`) and Phase 1 (CPU grader) have not started. No model loading, training, or Pi-log ingestion has happened here.
+Research repo testing whether direct GRPO (no SFT) from the original Gemma 4 E4B instruction checkpoint improves Bash scripting on held-out, executable-verified tasks. Exercises are authored first; Pi-informed tasks are conditional on the source audit before Phase 3, recorded in `reports/source-preflight.md`. This is currently a planning-only documentation repo: Phase 0 repository setup is complete and the repo is public, but its runtime and orchestration checks (`reports/runtime-capabilities.md` and `reports/orchestration-smoke.md`) and Phase 1 (CPU grader) have not started. No model loading, training, or Pi-log ingestion has happened here.
 
 - Public repo: `rajivmehtaflex/gemma4-shell-grpo` (branch `main`); visibility was changed at the user's request — raw data, credentials, and checkpoints still never enter Git.
 - Dev host is macOS; all scored script execution must happen inside the restricted Linux grading image (see rule below). The pinned Linux/amd64 grading image is the initial cross-machine target; macOS development may use emulation.
@@ -12,6 +12,7 @@ Research repo testing whether direct GRPO (no SFT) from the original Gemma 4 E4B
 
 - Read README.md, PLAN.md, STATE.md, and docs/HANDOFF.md before continuing.
 - Follow the active phase; mark completion only with recorded evidence.
+- Phase 0/1 use authored exercises and do not require Pi-source staging or assessment. Audit user-designated Pi sessions before Phase 3; if the corpus is insufficient, continue with the recorded authored-only fallback.
 - No SFT. Start from the original Gemma 4 E4B instruction checkpoint; fresh LoRA adapters are permitted for direct GRPO if the compatibility phase validates them.
 - Complete CPU preparation before renting GPU compute. Record GPU compatibility evidence before claiming the fast stack works.
 - Execute generated shell scripts only in the restricted Linux grading environment. Never execute them on the development host.

@@ -1,6 +1,6 @@
 # Gemma 4 E4B Shell GRPO
 
-Improve shell scripting with direct GRPO starting from the original Gemma 4 E4B instruction checkpoint. Use Pi sessions to discover realistic tasks, then score newly generated scripts through reproducible execution. There is no SFT stage.
+Improve shell scripting with direct GRPO starting from the original Gemma 4 E4B instruction checkpoint. Begin with authored exercises and add tasks informed by Pi sessions if the source audit before Phase 3 supports them. Score newly generated scripts through reproducible execution. There is no SFT stage.
 
 ## Project documents
 
@@ -20,6 +20,6 @@ The proposed fast stack is Unsloth + TRL with fresh LoRA adapters for direct GRP
 
 Git stores code, configs, plans, small sanitized examples, and artifact manifests. External durable storage holds raw logs, datasets, rollouts, and checkpoints. Every machine handoff starts from a pushed commit and verified artifact references.
 
-Status: planning repository only. Phase 0's source/runtime preflights precede Phase 1 implementation. See STATE.md before beginning work.
+Status: planning repository only. Phase 0's runtime, storage and orchestration checks precede Phase 1 implementation on authored exercises. The Pi source audit is deferred until before Phase 3; an authored-only dataset remains the fallback. See STATE.md before beginning work.
 
 First milestone: five CPU-verified exercises (D01–D05 in PLAN.md) whose graders accept different valid scripts, reject plausible wrong scripts, and give repeatable results. The project ultimately measures matched held-out functional pass rate with uncertainty; increasing training reward alone is insufficient.
