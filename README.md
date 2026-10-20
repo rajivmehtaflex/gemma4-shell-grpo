@@ -5,6 +5,7 @@ Improve shell scripting with direct GRPO starting from the original Gemma 4 E4B 
 ## Project documents
 
 - [Phase plan](PLAN.md): deliverables, CPU/GPU ownership, and exit criteria.
+- [Beginner's guide](docs/PLAN-GUIDE.md): plain-language walkthrough of the plan, GRPO, and the Unsloth/TRL stack.
 - [Design](docs/DESIGN.md): scope and data/artifact contracts.
 - [Current state](STATE.md): completed work and the next action.
 - [Machine handoff](docs/HANDOFF.md): commit, push, restore, and checkpoint rules.
@@ -17,6 +18,6 @@ The proposed fast stack is Unsloth + TRL with fresh LoRA adapters for direct GRP
 
 Git stores code, configs, plans, small sanitized examples, and artifact manifests. External durable storage holds raw logs, datasets, rollouts, and checkpoints. Every machine handoff starts from a pushed commit and verified artifact references.
 
-Status: planning repository only. See STATE.md before beginning work.
+Status: planning repository only. Phase 0's source/runtime preflights precede Phase 1 implementation. See STATE.md before beginning work.
 
-First milestone: five CPU-verified exercises whose graders accept different valid scripts, reject plausible wrong scripts, and give repeatable results. The project ultimately measures matched held-out functional pass rate with uncertainty; increasing training reward alone is insufficient.
+First milestone: five CPU-verified exercises (D01–D05 in PLAN.md) whose graders accept different valid scripts, reject plausible wrong scripts, and give repeatable results. The project ultimately measures matched held-out functional pass rate with uncertainty; increasing training reward alone is insufficient.

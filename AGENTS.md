@@ -1,3 +1,13 @@
+# Project overview
+
+Research repo testing whether direct GRPO (no SFT) from the original Gemma 4 E4B instruction checkpoint improves Bash scripting on held-out, executable-verified tasks informed by Pi session logs. This is currently a planning-only documentation repo: Phase 0 repository setup is complete and the repo is public, but Phase 0's two preflights (Pi source audit and runner capability contract, recorded in `reports/source-preflight.md` and `reports/runtime-capabilities.md`) and Phase 1 (CPU grader) have not started. No model loading, training, or Pi-log ingestion has happened here.
+
+- Public repo: `rajivmehtaflex/gemma4-shell-grpo` (branch `main`); visibility was changed at the user's request — raw data, credentials, and checkpoints still never enter Git.
+- Dev host is macOS; all scored script execution must happen inside the restricted Linux grading image (see rule below). The pinned Linux/amd64 grading image is the initial cross-machine target; macOS development may use emulation.
+- Planned stack (from PLAN.md): Python + uv + pytest; package `src/shell_grpo/` with `contracts/runner/fixtures/verifiers/rewards` modules, plus `tests/`, `configs/`, `scripts/`, `containers/grader/`, `environments/`, `reports/`, `manifests/`, `data/examples/`. These directories do not exist yet — create them per the active phase's file list.
+- Document map: README.md (summary) → PLAN.md (nine-phase roadmap, active phase, per-phase file lists and gates) → docs/DESIGN.md (task/fixture/reward/split contracts) → STATE.md (current state, decisions, evidence ledger) → docs/HANDOFF.md (CPU/GPU handoff and recovery protocol).
+- docs/PLAN-GUIDE.md is a beginner-friendly companion to PLAN.md (GRPO/Unsloth/TRL vocabulary and phase walkthrough). PLAN.md remains authoritative on any conflict.
+
 # Project working rules
 
 - Read README.md, PLAN.md, STATE.md, and docs/HANDOFF.md before continuing.
@@ -6,7 +16,8 @@
 - Complete CPU preparation before renting GPU compute. Record GPU compatibility evidence before claiming the fast stack works.
 - Execute generated shell scripts only in the restricted Linux grading environment. Never execute them on the development host.
 - Keep raw Pi logs, credentials, datasets, model files, and checkpoints out of Git. Small sanitized fixtures and manifests are allowed.
-- At each completed milestone and before every machine handoff: record evidence and next action, review the diff, commit explicit paths, push, and verify synchronization.
+- At each completed milestone and before every machine handoff: record evidence and next action, review the diff, commit explicit paths, push, and verify synchronization. Use short conventional commit prefixes (`docs:`, `feat:`, `fix:`), matching existing history.
+- Never commit model artifacts or raw data: `.gitignore` blocks `artifacts/`, `checkpoints/`, `data/raw/`, `data/processed/`, `outputs/`, `runs/`, and `*.safetensors`/`*.gguf`/`*.pt`/`*.pth`/`*.ckpt`. Git holds code, configs, plans, manifests, and small sanitized fixtures only.
 - Persist artifacts separately and verify hashes. A Git commit alone does not preserve training state.
 - Never overwrite another worker's dirty checkout. Each machine uses its own checkout; record the source commit of every run.
 - GPU provider, durable artifact storage, spending limits, and the interpretation of the fast stack are pending decisions in STATE.md. Do not provision paid resources based on assumptions.
