@@ -16,7 +16,7 @@ No Codespace, Colab or Modal session activation, model loading, Pi-log ingestion
 - GPU phases 2/4/6/7: activate Google Colab with `colab-ssh-setup` and execute the full phase; Phase 8 uses Colab then Codespaces.
 - All phases preserve private artifacts, publish a Git milestone through `gh-cli-ops`, and verify machine shutdown. Controller is the default GitHub writer.
 - `modal-deploy-ssh` is a fallback only after an explicit provider decision, with the same grading and persistence gates.
-- Separate public GitHub repository: `rajivmehtaflex/gemma4-shell-grpo`, using the active authenticated GitHub account.
+- Separate public GitHub repository: `rajivmehtaflex/gemma4-shell-grpo`, using the `rajivmehtaflex` account for Git publication (user-confirmed 2026-10-20).
 - One generated script per exercise initially.
 - Proposed fast stack is Unsloth + TRL, accelerated rollout integration conditional on compatibility evidence.
 - Commit and push at every milestone and machine handoff.
@@ -29,6 +29,9 @@ No Codespace, Colab or Modal session activation, model loading, Pi-log ingestion
 
 - Phase 1: choose CPU runtime/container engine and confirm Linux execution isolation requirements.
 - Before CPU activation: confirm GitHub account/Codespaces access, machine resources, runtime identity, storage and spending limits; identify the authorized Pi source sample.
+  - Resolved 2026-10-20: Git publication account confirmed as `rajivmehtaflex` (user decision; verified active in `gh auth status`).
+  - Open: the active `rajivmehtaflex` token lacks the `codespace` scope (scopes: gist, read:org, repo, workflow), so it cannot create/start Codespaces. `rajivmehtajs` and `mantramehtapy` tokens do carry `codespace`. User decision pending: add the scope to `rajivmehtaflex` (`gh auth refresh -h github.com -s codespace`) or designate a codespace-scoped activator account alongside the `rajivmehtaflex` publisher, recorded in the run manifest.
+  - Open: Pi source scarcity. Local inventory on 2026-10-20 found Pi installed and authenticated but with exactly one session file (156 KB, 2026-10-07, project `~/Documents/Dev`); nothing in the last 7 days. The source preflight's ≥5-exercise bar cannot be met from this archive today, so a dataset-scope decision is required (authored-only corpus vs using Pi for real work and re-running the preflight later vs a substitute session source with documented format adaptation).
 - Before first Colab activation: confirm its session name as required by `colab-ssh-setup`; verify CLI SSH/ADC prerequisites, accelerator, isolation capabilities and session budget.
 - Phase 2: confirm the intended fast stack, Colab accelerator, exact upstream model/tokenizer revisions, and tested dependency versions. Proposed conservative path: Unsloth + TRL, fresh LoRA, `fast_inference=False`; accelerated rollout generation is optional.
 - Phase 2: select durable private artifact storage and retention policy; this must exist before the first GPU run.
@@ -60,3 +63,5 @@ Existing files in the parent workspace describe other projects with SFT prerequi
 - 2026-10-20: Updated PLAN.md to address all 12 review findings at the planning level, including earlier source preflight, shared Phase 2 training/evaluation, explicit scoring failures, concrete diagnostic exercises, screening thresholds, grouped splits and bounded experiment selection. Gates remain unexecuted. Repository is public following the user-authorized visibility change; raw data and checkpoint storage remain private.
 
 - 2026-10-20: Added the user-approved GH/Codespaces-first CPU and Colab-first GPU orchestration to PLAN.md, HANDOFF.md and companion documentation, including the beginner guide. This is a documentation milestone only; no provider machine was activated and no phase acceptance gate was executed.
+
+- 2026-10-20: Pre-activation environment audit (read-only): `gh auth status` shows four logged-in accounts; `rajivmehtaflex` is active with repo/workflow scopes but no `codespace` scope; `rajivmehtajs` and `mantramehtapy` carry `codespace`. User confirmed `rajivmehtaflex` as the publication account. Pi CLI (`~/.bun/bin/pi`) is installed and authenticated; `~/.pi/agent/sessions/` holds exactly one JSONL session (156 KB, 2026-10-07). No sessions were read; metadata only. Two user decisions now gate Phase 0 activation: Codespace scope strategy and Pi dataset scope.

@@ -260,14 +260,25 @@ and publication used at the end of every phase, including Colab phases.
 ### 4.1 The same complete cycle in every phase
 
 1. **Check the starting point.** Read STATE.md and the phase requirements. Confirm the right
-   source-code version, files, account, machine resources, storage and spending limit.
-2. **Activate the right workbench.** Reconnect to a suitable existing Codespace or Colab runtime;
-   create one only if needed. Confirm the Colab name before its first creation. Verify the actual
-   worker identity, rather than assuming an old SSH shortcut still points to it.
-3. **Restore the inputs.** Get the recorded code version, install the recorded software environment,
-   and retrieve the matching private data/checkpoints. Check their file fingerprints (hashes).
-4. **Do the entire phase.** Run all its tasks and checks. Getting an SSH connection is the start
-   of the work, not the completion signal.
+   source-code version, files, account, machine resources, storage and spending limit. The
+   controller also keeps a private per-run record folder (Git-ignored `runs/<run-id>/`) and
+   checks its free space against what this phase plans to produce.
+2. **Bootstrap or activate the workbench.** Reconnect to a suitable existing Codespace or Colab
+   runtime; create one only if needed. The very first Codespace is a special case: it boots on
+   the repository's default setup, and the team records what it actually contains — no pinned
+   project environment exists until Phase 1 defines one. Confirm the Colab name before its first
+   creation. Verify the actual worker identity, rather than assuming an old SSH shortcut still
+   points to it.
+3. **Restore the inputs.** Get the recorded code version, install the recorded software
+   environment, and retrieve the matching private data/checkpoints. Check their file
+   fingerprints (hashes). If work changes code on the worker, those changes travel back as a
+   real commit or a saved patch — the recorded starting version alone never describes what
+   actually ran.
+4. **Do the entire phase, and track the work while it runs.** Run all its tasks and checks.
+   Getting an SSH connection is the start of the work, not the completion signal. Every run gets
+   a stable job identity with a heartbeat, a log location and, eventually, an exit code — so a
+   dropped connection becomes a *reconnect-and-check* situation, never a reason to launch the
+   same job a second time.
 5. **Save and publish.** Copy large/private results to durable private storage and verify them.
    The controller reviews sanitized reports, updates STATE.md, commits the milestone, pushes it,
    and checks that GitHub has the same version. The controller is the default GitHub writer.
@@ -279,7 +290,9 @@ and publication used at the end of every phase, including Colab phases.
 Stopping a Codespace preserves its workspace for its retention period; it is different from
 deleting it. Storage can still have a cost. Colab's `/content` is temporary and must not be the
 only copy of a dataset or training checkpoint. Closing SSH or the editor does not prove that
-remote compute has stopped. Both CPU and GPU workspaces can have costs; check the limits first.
+remote compute has stopped. Both CPU and GPU workspaces can have costs; check the limits first —
+and a long paid run may only start once something (a watchdog or timeout) is proven able to stop
+it at the budget deadline.
 
 ### 4.2 Which skill runs each phase?
 
@@ -308,12 +321,21 @@ from memory each time.
 |---|---|---|
 | Code and reports | The instructions and sanitized written results | Git/GitHub |
 | Data and model checkpoints | The inputs and saved training progress | Private durable artifact storage |
+| Run record | Which run did what: its job identity, logs, exact code identity and milestones | Private controller folder (Git-ignored `runs/`), never in Git |
 | Session record | Which machine ran what, its resource limits and whether it stopped | Sanitized state/manifest; sensitive connection details remain private |
 
 A checkpoint that can resume training includes more than the model's learned adapter. It also
 includes the optimizer, training step and other recovery state described in HANDOFF.md. A saved
-SSH address is not a saved training process. If a connection drops, first inspect the existing
-runtime/job and try to reconnect; do not start a duplicate training job or claim the phase is done.
+SSH address is not a saved training process. If a connection drops, check the provider's session
+status *and* the run's job record (heartbeat, log, exit code) before reconnecting; never start a
+duplicate job based on a lost connection alone.
+
+The plan also tracks **how finished** a phase is, with words that each mean something specific:
+`ready` → `running` → `work_verified` → `artifacts_verified` → `publish_pending` →
+`machine_stopped` → `closeout_pending` → `complete` — plus `interrupted` whenever reality
+interrupts. The purpose is honest resumability: after any failure, work resumes at the first
+unverified step instead of repeating what already passed, and a phase is only `complete` when
+both the results commit and the shutdown closeout commit are confirmed on GitHub.
 
 Finally, **the cloud workspace is not automatically a safe script grader**. The GPU runtime has
 CPU cores for checking scripts, but it must still enforce the same restricted Linux grading
@@ -344,7 +366,7 @@ deliberate.
 
 ## 6. The nine phases, in plain language
 
-### Phase 0 — Repository and evidence contract · *setup complete, preflights unstarted*
+### Phase 0 — Repository and evidence contract · *setup complete; preflights, storage and smoke checks unstarted*
 
 **Machine and skill:** Use `gh-cli-ops` to activate the CPU Codespace, finish both preflights there, save their evidence, publish the milestone and stop the workspace. Repository creation itself is already done.
 
@@ -367,6 +389,25 @@ before any Phase 1 code is written:
   execution, fixture/result transport, external verifier access — *before* choosing a container
   engine. A pinned Linux/amd64 grading image is the initial cross-machine target; macOS
   development may use emulation. No paid GPU is needed for this check.
+
+The orchestration revision added three more Phase 0 items, all about trusting the *workflow*
+before trusting any results produced by it:
+
+- **Claim the private handoff folder.** Select the Git-ignored controller-side `artifacts/`
+  directory, check it can hold this phase's planned outputs, and record the estimate. The fully
+  independent durable storage for model checkpoints remains a prerequisite to settle before
+  Phase 2.
+- **Bootstrap, don't assume.** The first Codespace boots on the repository's default setup;
+  record the OS and tool versions it actually has, and create no GPU resources. Pinned project
+  environments start with Phase 1.
+- **Rehearse the whole lifecycle on something harmless** (`reports/orchestration-smoke.md`):
+  run a tiny sentinel job, disconnect and reconnect, confirm it is the *same* run rather than a
+  duplicate, copy its results back, compare hashes, push a sanitized evidence commit, stop the
+  Codespace, and publish the closeout. Then deliberately simulate a failed upload and a failed
+  push, and prove that partial copies are *not* treated as verified and that the phase can
+  recover without rerunning the job. Before first real use, also do a read-only dry run of each
+  skill — identity check, session selection, stop command — and record which skill revision was
+  used, so the instructions themselves can be restored later.
 
 ### Phase 1 — Prove the CPU grader before trusting rewards
 
@@ -431,6 +472,11 @@ known-good means every task inherits an unvalidated measurement instrument.
 Now activate the chosen Colab GPU runtime — but first confirm the runner still enforces the Phase 1 isolation contract on
 that host, and that the host is not allowed to proceed if it cannot. Then:
 
+- before any model generation, push the same tiny sentinel through the Colab SSH bridge:
+  confirm the job identity and its exit record survive a disconnect/reconnect, copy its private
+  output to the controller and compare hashes, and test how the chosen stop/`--rm` behavior
+  treats the runtime — this rehearsal is recorded in `reports/orchestration-smoke.md` before any
+  long training job is trusted to it;
 - pin the exact upstream checkpoint and tokenizer revision, plus precision, template, thinking
   mode, and decoding settings;
 - verify that attaching a **fresh** adapter does not change the initial baseline beyond a
@@ -691,18 +737,28 @@ on counting independent clusters is designed to prevent exactly that.
 
 ## 10. Where to start, concretely
 
-Phase 0's repository setup is done; what comes next is its two preflights, then the Phase 1
+Phase 0's repository setup is done; what comes next is its rehearsal work — storage, workspace
+bootstrap, skill checks, the orchestration smoke test and the two preflights — then the Phase 1
 specification. Start by activating the CPU Codespace with `gh-cli-ops`, after confirming its
 account, resources, storage and spending limit. CPU-only does not mean free. Then:
 
-1. **Run the source preflight.** Select the user-designated Pi sessions on the controller and
+1. **Set up and rehearse the workspace.** Claim the private controller-side `artifacts/` folder
+   and check its capacity against this phase's planned outputs. Let the first Codespace boot on
+   the repository's default setup and record what OS and tools it actually has. Do a read-only
+   dry run of each skill — identity check, session selection, stop command — and record the skill
+   revisions. Then run the orchestration smoke test: a tiny sentinel through connect →
+   disconnect/reconnect (confirming it is the same run, not a duplicate) → transfer → hash
+   compare → sanitized push → stop → closeout, plus a simulated failed upload and failed push to
+   prove partial copies are never treated as verified. Record it all in
+   `reports/orchestration-smoke.md`.
+2. **Run the source preflight.** Select the user-designated Pi sessions on the controller and
    stage only the authorized sample privately outside Git in Codespaces. Inspect up to ten
    representative sessions there and check that at least five plausible exercises exist
    across the initial categories. Record schema versions, available command/tool evidence,
    missing filesystem state, reconstruction effort, and exclusions in
    `reports/source-preflight.md` — sanitized counts and provenance hashes only. If the source
    material cannot support five exercises, stop for a dataset-scope decision.
-2. **Record the runtime capability contract.** Write down the grading runner's host requirements
+3. **Record the runtime capability contract.** Write down the grading runner's host requirements
    — architecture, namespaces, resource limits, unprivileged execution, fixture/result
    transport, external verifier access, availability on candidate GPU host types — in
    `reports/runtime-capabilities.md`, *before* picking an engine. The initial cross-machine
@@ -710,19 +766,19 @@ account, resources, storage and spending limit. CPU-only does not mean free. The
    gate opens, research current engine options with exa/Context7: Docker with a digest-pinned
    image, Podman rootless, or `bubblewrap`/`nsjail` with a seccomp profile for a lighter-weight
    sandbox.
-3. **Specify, then implement, the Phase 1 contracts.** Write and review the five exact prompts
+4. **Specify, then implement, the Phase 1 contracts.** Write and review the five exact prompts
    (D01–D05 above), invocation examples, typed `TaskRecord`/`GradeResult` schema examples,
    reward tables, and the scoring failure protocol *before* writing runner code. Then lock a
    CUDA-free CPU environment, fresh per-candidate fixtures, and fixed utility versions, locale,
    and timezone. Do not assume a container freezes the clock; if a task depends on the time,
    define a reference time explicitly.
-4. **Build the five exercises end to end**, with the positive / alternate / wrong / repeatable
+5. **Build the five exercises end to end**, with the positive / alternate / wrong / repeatable
    evidence attached to each.
-5. **Then** scale to ~20 diagnostics, and only after that think about GPU work.
+6. **Then** scale to ~20 diagnostics, and only after that think about GPU work.
 
-The preflights and all of Phase 1 are CPU-only. No GPU is needed yet, and nothing is blocked on
-GPU accelerator selection. Private source access and CPU storage must be ready before the
-preflight; durable GPU artifact storage must be ready before Phase 2.
+The rehearsal, preflights and all of Phase 1 are CPU-only. No GPU is needed yet, and nothing is
+blocked on GPU accelerator selection. Private source access and CPU storage must be ready before
+the preflight; durable GPU artifact storage must be ready before Phase 2.
 
 ---
 
