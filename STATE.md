@@ -34,7 +34,7 @@ No Codespace, Colab or Modal session activation, model loading, Pi-log ingestion
   - Resolved 2026-10-20: Git publication account confirmed as `rajivmehtaflex` (user decision; verified active in `gh auth status`).
   - Resolved 2026-10-20: the user ran `gh auth refresh -h github.com -s codespace` on the active `rajivmehtaflex` account. Verified afterwards: token scopes now include `codespace`, `gh api user` returns `rajivmehtaflex`, and `gh codespace list` is empty. Single-identity strategy chosen — one account performs both Codespace activation and Git publication; no split-role activator needed. The first Codespace will be created from `rajivmehtaflex/gemma4-shell-grpo` (user-stated plan).
   - Resolved 2026-10-20 (resources and budget): basic 2-core Codespace, GitHub free tier, $10/month spending ceiling (user decision).
-  - Resolved 2026-10-20 (dataset scope): authored-first path chosen (see Decisions). The source preflight as written cannot be met from today's archive and is deferred to a re-run before Phase 3.
+  - Resolved 2026-10-20 (dataset scope): authored-first path chosen (see Decisions). The existing archive's exercise yield is **not yet assessed** (metadata-only inspection found one 156 KB session; contents unread), so the source preflight is deferred to a re-run before Phase 3 rather than run now.
   - Open: Pi source scarcity. Local inventory on 2026-10-20 found Pi installed and authenticated but with exactly one session file (156 KB, 2026-10-07, project `~/Documents/Dev`); nothing in the last 7 days. Under the authored-first path this does not block Phase 0/1; the user accumulates real Pi sessions in parallel.
 - Before first Colab activation: confirm its session name as required by `colab-ssh-setup`; verify CLI SSH/ADC prerequisites, accelerator, isolation capabilities and session budget.
 - Phase 2: confirm the intended fast stack, Colab accelerator, exact upstream model/tokenizer revisions, and tested dependency versions. Proposed conservative path: Unsloth + TRL, fresh LoRA, `fast_inference=False`; accelerated rollout generation is optional.
@@ -42,7 +42,7 @@ No Codespace, Colab or Modal session activation, model loading, Pi-log ingestion
 - Before Phase 1 implementation: identify user-designated representative Pi sessions and assess source viability and reconstructable state; full extraction remains Phase 3.
 - Phase 5: finalize training hyperparameters and checkpoint cadence from measured compatibility/screening evidence.
 
-Source feasibility and the runner capability contract must be recorded before Phase 1 implementation. GPU-specific choices remain deferred until their dependent phases.
+The runner capability contract must be recorded before Phase 1 implementation; source feasibility is re-assessed before Phase 3 under the authored-first path (see Decisions). GPU-specific choices remain deferred until their dependent phases.
 
 ## Next action
 
@@ -73,3 +73,5 @@ Existing files in the parent workspace describe other projects with SFT prerequi
 - 2026-10-20: Codespace scope gap closed. User completed the device-flow `gh auth refresh -h github.com -s codespace` for `rajivmehtaflex`; post-refresh verification confirms the `codespace` scope and active identity. Remaining Phase 0 inputs: Codespace machine type and spending/storage expectations, plus the Pi dataset-scope decision (authored-first vs accumulate Pi sessions vs substitute source).
 
 - 2026-10-20: User accepted the authored-first dataset path and set Phase 0 resources: basic 2-core Codespace, GitHub free tier, $10/month spending ceiling. Phase 0 machine activation is now unblocked; no Codespace has been created yet. Phase 0/1 proceed on authored exercises; the Pi source preflight re-runs before Phase 3.
+
+- 2026-10-20: Independent 16-finding documentation review confirmed and resolved. Confirmed errors fixed: GRPO worked-example arithmetic (population std ≈ 0.415, advantages −1.51/−0.30/+0.90/+0.90) in the guide and visualization; DeepSeekMath (2402.03300) vs DeepSeek-R1 (2501.12948) references. Contract amendments applied: Pi source preflight deferred to pre-Phase 3 across PLAN/HANDOFF/guide; Phase 3 authored-only branch defined; launch-snapshot freeze before job start; per-fixture scoring precedence; Phase 1 boundary-case reward examples required; controller-unavailability smoke scenario and worker-side deadline requirement; Phase 2 sentinel framed as a separate smoke subrun; evaluation records must keep raw completion, extraction outcome and policy step; outcome labels (improvement / no improvement / inconclusive) defined in DESIGN.md; handoff restore and field table aligned with the executed-code contract. Guide clarifications: connected-component evidence unit; permitted tool use is not reward hacking.

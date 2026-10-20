@@ -149,8 +149,12 @@ identical problem.
 **Reward hacking** — the model learning to exploit the reward rather than do the task. Unsloth's
 documentation describes the classic cases in a code setting: the model learns to *edit the timing
 function* to report a fake result, to *cache* the answer and read it back, or to *outsource* the
-work to a library that does it for free. In shell-script terms these are: hard-coding the
-example answer, reading a stashed file, or calling a helper instead of writing the script.
+work to a library when the task forbids it. In shell-script terms these are: hard-coding the
+example answer, reading a stashed file, or tampering with the grading environment. One boundary
+is worth stating plainly: **using permitted standard tools is not cheating.** A script that
+solves the task with `find`, `awk`, or `sort` is a valid solution — cheating means violating a
+restriction the task states or bypassing the grader, and the wrong-script checks target exactly
+that (empty scripts, hard-coded answers, semantic errors), never legitimate tool use.
 
 This is precisely why PLAN.md's Phase 1 wrong-script checks are not bureaucracy. A grader that
 can be fooled will actively teach the model to fool graders, and the training curve will look
@@ -200,14 +204,19 @@ This is the core mental model, using the project's own domain. One training step
    | C | Correct | 1.0 |
    | D | Correct, different implementation (`find` vs glob) | 1.0 |
 
-3. **Normalize into advantages.** Mean reward = 0.625, standard deviation ≈ 0.331, so:
+3. **Normalize into advantages.** Mean reward = 0.625. The group's standard deviation is
+   ≈ 0.415 (population convention), giving:
 
    | Candidate | Advantage | Meaning |
    |---|---|---|
-   | A | −1.89 | strongly discouraged |
-   | B | −0.38 | mildly discouraged |
-   | C | +1.13 | encouraged |
-   | D | +1.13 | encouraged |
+   | A | −1.51 | strongly discouraged |
+   | B | −0.30 | mildly discouraged |
+   | C | +0.90 | encouraged |
+   | D | +0.90 | encouraged |
+
+   (Implementations differ on population vs sample standard deviation — with the sample
+   convention the same rewards give ≈ 0.479 and advantages ≈ −1.31 / −0.26 / +0.78 / +0.78.
+   The exact convention is frozen per experiment before training.)
 
 4. **Update.** The model's weights move so that C- and D-style completions become slightly more
    likely, and A-style completions slightly less. Note that D is rewarded for a *different*
@@ -727,11 +736,14 @@ The default outcome is an **exploratory** estimate. Calling the result *confirma
 precision/power assessment before final-test outcomes are opened, and the claim can never be
 upgraded — nor the test set grown — in response to observed final-test scores.
 
-**The statistics matter here.** The unit of evidence is the *source cluster*, not the number of
-fixture variants or sampled responses, because those are not independent. A bootstrap over
-clusters is what makes the confidence interval honest. Reporting a point estimate over 100
+**The statistics matter here.** The unit of evidence is the *connected component* of the plan's
+relationship graph — source episodes linked through shared episodes, forks, paraphrases, task
+templates, and diagnostic derivatives — not the number of fixture variants or sampled responses,
+because those are not independent. (This matters especially for authored tasks: two exercises
+built from one template are related even with different source episodes.) A bootstrap over these
+components is what makes the confidence interval honest. Reporting a point estimate over 100
 correlated fixture variants would be a way to manufacture significance, and the plan's insistence
-on counting independent clusters is designed to prevent exactly that.
+on counting independent components is designed to prevent exactly that.
 
 ---
 
@@ -757,7 +769,9 @@ account, resources, storage and spending limit. CPU-only does not mean free. The
    across the initial categories. Record schema versions, available command/tool evidence,
    missing filesystem state, reconstruction effort, and exclusions in
    `reports/source-preflight.md` — sanitized counts and provenance hashes only. If the source
-   material cannot support five exercises, stop for a dataset-scope decision.
+   material cannot support five exercises, stop for a dataset-scope decision. *(Deferred under
+   the authored-first decision: this preflight re-runs before Phase 3 rather than gating
+   Phase 1 — see STATE.md.)*
 3. **Record the runtime capability contract.** Write down the grading runner's host requirements
    — architecture, namespaces, resource limits, unprivileged execution, fixture/result
    transport, external verifier access, availability on candidate GPU host types — in
@@ -800,7 +814,8 @@ This guide is an orientation. The binding details live in:
 - Unsloth RL guide: https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide
 - Unsloth Gemma 4 training guide: https://unsloth.ai/docs/models/gemma-4/train
 - Unsloth on RL reward hacking: https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/advanced-rl-documentation/rl-reward-hacking
-- GRPO paper (DeepSeekMath): https://huggingface.co/papers/2501.12948
+- GRPO paper (DeepSeekMath, introduced GRPO): https://huggingface.co/papers/2402.03300
+- DeepSeek-R1 (popularized GRPO for reasoning): https://huggingface.co/papers/2501.12948
 - Pi session format: https://pi.dev/docs/latest/session-format
 - Gemma 4: https://deepmind.google/models/gemma/gemma-4/
 

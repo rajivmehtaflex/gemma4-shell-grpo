@@ -59,6 +59,8 @@ Primary endpoint: task-level single-attempt full functional pass rate under matc
 
 Proposed practical target to freeze in Phase 5: at least a 5 percentage-point held-out pass-rate improvement. Claim demonstrated improvement only when the paired 95% interval excludes zero and observed critical violations do not increase. A small pilot can remain inconclusive; report the effect estimate and interval instead of expanding scope to force a positive finding. A working trainer is a technical success, not proof of model improvement. The pilot proceeds only with valid rewards, verified recovery, and a positive validation point estimate without increased critical violations; it need not establish statistical significance.
 
+Freeze the outcome labels with the experiment: **improvement** requires the paired 95% interval to exclude zero on the positive side, a point estimate at or above the practical target, and no increase in observed critical violations. **No improvement** means the interval excludes zero on the negative side. **Inconclusive** means the interval includes zero. A positive, statistically resolved estimate below the practical target is reported honestly as directional evidence that misses the predeclared target — it is not an improvement claim, and the labels are never re-drawn after seeing final-test results.
+
 ## Artifact and state contract
 
 Every run manifest records source Git SHA, config hash, model/tokenizer revisions, template/thinking settings, dependency lock hash, image digest, data release/hash, reward version, seeds, hardware, run ID, parent run, and durable artifact URIs with checksums. No credentials are stored in manifests.

@@ -31,7 +31,7 @@ Commit at a coherent milestone, not every training step. Checkpoints may be more
 ## On the destination machine
 
 1. Use a separate clone. Check the working tree before syncing an existing checkout; never discard dirty work.
-2. Fetch the branch and check out the source commit named in the run/handoff manifest. Read STATE.md, PLAN.md, and DESIGN.md.
+2. Fetch the branch and check out the base commit named in the run/handoff manifest, then restore the recorded executed-code identity — the worker result commit, or the retained patch/content hash for a dirty tree. Restoring the base commit alone can omit worker changes. Read STATE.md, PLAN.md, and DESIGN.md.
 3. Restore the matching CPU environment or validated GPU lock; compare model/tokenizer revisions, template, GPU capabilities, data hashes, reward version, and grader image digest.
 4. Download referenced artifacts and verify checksums. Never infer the latest dataset/checkpoint from a mutable directory name.
 5. Run the phase's readiness checks, then begin the recorded next action. For recovery, restore full trainer state and record a child run ID pointing to its parent.
@@ -47,11 +47,14 @@ In Phase 6, train a few optimizer steps on the tiny diagnostic subset. Persist t
 | Field | Purpose |
 |---|---|
 | Phase, status, next action | Continuation point |
-| Skill identifier/revision or script hash | Exact lifecycle instructions used |
+| Skill identifier and retrievable revision/source (a hash alone is not restorable) | Exact lifecycle instructions used |
 | Provider, actual session ID, SSH target and workspace | Reconnect to the right worker |
 | Requested/actual resources, timeout and stop evidence | Resource accounting and verified shutdown |
 | Controller and Git writer identity | Single-writer ownership |
-| Branch, source Git SHA, results commit | Code and evidence provenance |
+| Branch, base Git SHA, results commit | Code and evidence provenance |
+| Executed code identity (worker commit or patch/content hash) and launch snapshot | Exact code that ran, not just the base |
+| Job ID, remote handle, heartbeat/log path and exit code | Resume the job, never duplicate it |
+| Milestone status on the phase-state ladder | Resume from the first unverified milestone |
 | Run ID and parent run | Experiment lineage |
 | Model/tokenizer revision and template/thinking config | Starting policy identity |
 | Dataset release/hash and split membership | Exact task identity |
