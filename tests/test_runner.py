@@ -106,7 +106,7 @@ def test_timeout_is_resource_limit(runner, out_root):
 
 
 def test_fork_bomb_is_resource_limit(runner, out_root):
-    script = b"#!/bin/bash\nwhile true; do bash -c ': & bash -c \": & \"; done\n"
+    script = b"#!/bin/bash\nwhile true; do bash -c : & done\n"
     config = RunnerConfig(time_limit_seconds=6, pids_limit="32")
     result = grade_script(
         "D01", script, 1, RestrictedRunner(config),
