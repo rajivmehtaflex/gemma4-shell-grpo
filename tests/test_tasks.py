@@ -30,6 +30,32 @@ def test_each_task_has_progress_fixture_and_valid_weights():
         assert abs(total - 1.0) < 1e-6, f"{task.task_id} weights sum to {total}"
         ids = task.fixture_ids()
         assert len(ids) == len(set(ids)), f"{task.task_id} has duplicate fixture ids"
+        for case in task.fixtures:
+            assert callable(case.build), f"{task.task_id}/{case.fixture_id}: build not callable"
+
+
+def test_every_fixture_builds_deterministically(tmp_path):
+    """Builders are pure Python: construct every fixture twice and compare.
+
+    This exercises each builder on the dev host (no candidate execution)
+    and pins down that the same seed reproduces the same tree hash.
+    """
+    from shell_grpo.contracts import derive_fixture_seeds
+    from shell_grpo.fixtures import build_instance, remove_tree
+
+    for task in all_tasks():
+        seeds = derive_fixture_seeds(task.task_id, 7, task.fixture_ids())
+        for case in task.fixtures:
+            a = build_instance(case.fixture_id, seeds[case.fixture_id], tmp_path / "a", case.build)
+            b = build_instance(case.fixture_id, seeds[case.fixture_id], tmp_path / "b", case.build)
+            assert a.fixture_sha256 == b.fixture_sha256, f"{task.task_id}/{case.fixture_id}"
+            assert isinstance(a.truth.argv, list)
+            if not a.truth.expects_failure and case.verify is None:
+                assert a.truth.expected_stdout is not None, (
+                    f"{task.task_id}/{case.fixture_id}: simple fixture lacks expected stdout"
+                )
+            remove_tree(a.root)
+            remove_tree(b.root)
 
 
 def test_unique_fixture_ids_across_tasks():

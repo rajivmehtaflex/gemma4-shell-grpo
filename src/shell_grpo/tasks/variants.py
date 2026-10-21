@@ -272,10 +272,11 @@ register(
 # ---------------------------------------------------------------------------
 
 
-def _slice_fixture(content: bytes, expected: bytes, *, missing: bool = False):
+def _slice_fixture(content: bytes | None, expected: bytes | None, *, missing: bool = False):
     def build(root, rng: random.Random) -> GroundTruth:
-        if not missing:
-            put(root, "input.txt", content)
+        if missing:
+            return GroundTruth(argv=["input.txt"], expects_failure=True, expected_exit=2)
+        put(root, "input.txt", content)
         return GroundTruth(argv=["input.txt"], expected_stdout=expected)
 
     return build

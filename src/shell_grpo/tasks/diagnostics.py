@@ -160,7 +160,7 @@ def _d02_copy_verify(ctx: VerifyContext) -> FixtureVerdict:
 def _d02_empty_src(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "notes.txt", b"no log files here\n")
     mkdir(root, "dst")
-    return GroundTruth(argv=["src", "dst"], expected_stdout=b"")
+    return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": {}})
 
 
 register(
@@ -180,9 +180,15 @@ register(
         ),
         invocation="solution.sh <source-dir> <dest-dir>",
         fixtures=[
-            FixtureCase("d02-empty-src", 0.2, False, _d02_empty_src),
-            FixtureCase("d02-main", 0.4, True, lambda root, rng: _d02_main(root, rng, 1)),
-            FixtureCase("d02-main2", 0.4, True, lambda root, rng: _d02_main(root, rng, 2)),
+            FixtureCase("d02-empty-src", 0.2, False, _d02_empty_src, _d02_copy_verify),
+            FixtureCase(
+                "d02-main", 0.4, True, lambda root, rng: _d02_main(root, rng, 1),
+                _d02_copy_verify,
+            ),
+            FixtureCase(
+                "d02-main2", 0.4, True, lambda root, rng: _d02_main(root, rng, 2),
+                _d02_copy_verify,
+            ),
         ],
         reference="reference.sh",
         alternate="alternate.sh",
@@ -325,7 +331,7 @@ def _d04_main(root, rng: random.Random) -> GroundTruth:
 def _d04_empty_src(root, rng: random.Random) -> GroundTruth:
     mkdir(root, "src")
     mkdir(root, "dst")
-    return GroundTruth(argv=["src", "dst"], expected_stdout=b"")
+    return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": {}})
 
 
 def _d04_invalid_noargs(root, rng: random.Random) -> GroundTruth:
@@ -373,7 +379,7 @@ register(
         invocation="solution.sh <source-dir> <dest-dir>",
         fixtures=[
             FixtureCase("d04-main", 0.4, True, _d04_main, _d04_copy_verify),
-            FixtureCase("d04-empty-src", 0.15, False, _d04_empty_src),
+            FixtureCase("d04-empty-src", 0.15, False, _d04_empty_src, _d04_copy_verify),
             FixtureCase("d04-invalid-noargs", 0.15, False, _d04_invalid_noargs),
             FixtureCase("d04-invalid-src-missing", 0.15, False, _d04_invalid_src_missing),
             FixtureCase("d04-invalid-dst-missing", 0.15, False, _d04_invalid_dst_missing),
