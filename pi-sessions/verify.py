@@ -53,18 +53,25 @@ def worker_sha(codespace: str, path: str) -> str:
 
 
 def worker_run(codespace: str, command: str) -> subprocess.CompletedProcess:
+    """Run a script on the worker via stdin (bash -s).
+
+    gh codespace ssh does not preserve argument quoting on multi-word remote
+    commands, so the script travels on stdin and only the fixed two words
+    `bash -s` cross the command line.
+    """
     return subprocess.run(
-        ["gh", "codespace", "ssh", "-c", codespace, "--", "bash", "-lc", command],
-        capture_output=True, text=True,
+        ["gh", "codespace", "ssh", "-c", codespace, "--", "bash", "-s"],
+        input=command, capture_output=True, text=True,
     )
 
 
 def stream_to_worker(codespace: str, remote_dir: str, name: str, data: bytes) -> None:
     b64 = base64.b64encode(data).decode()
-    proc = worker_run(
-        codespace,
-        f"mkdir -p {remote_dir} && printf '%s' '{b64}' | base64 -d > {remote_dir}/{name}",
+    script = (
+        f"mkdir -p {remote_dir} && "
+        f"printf '%s' '{b64}' | base64 -d > {remote_dir}/{name}"
     )
+    proc = worker_run(codespace, script)
     if proc.returncode != 0:
         print(f"transfer failed for {name}: {proc.stderr}", file=sys.stderr)
         sys.exit(5)
@@ -160,14 +167,19 @@ def main() -> None:
             sys.exit(4)
 
     candidate_id = args.candidate_id or f"{record['script_sha256'][:12]}"
-    grade_cmd = (
-        f"cd /workspaces/gemma4-shell-grpo && PYTHONPATH=src .venv/bin/python -m shell_grpo.cli "
+    support_flags = "".join(
+        f" --support {name}={remote_dir}/{name}" for name in supports
+    )
+    grade_script_text = (
+        "set -e\n"
+        "cd /workspaces/gemma4-shell-grpo\n"
+        "PYTHONPATH=src .venv/bin/python -m shell_grpo.cli "
         f"grade --task {args.task_id} --script {remote_dir}/solution.sh "
         f"--seed {args.seed} --candidate-id {candidate_id} --group-id pi-campaign "
-        f"--out-dir {remote_dir}/out --config configs/runner.yaml"
+        f"--out-dir {remote_dir}/out --config configs/runner.yaml{support_flags}\n"
     )
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    proc = worker_run(args.codespace, grade_cmd)
+    proc = worker_run(args.codespace, grade_script_text)
     if proc.returncode != 0:
         print(f"grade invocation failed (exit {proc.returncode}): {proc.stderr}", file=sys.stderr)
         sys.exit(5)
@@ -177,6 +189,8 @@ def main() -> None:
         print("grade output was not valid JSON", file=sys.stderr)
         print(proc.stdout[-2000:], file=sys.stderr)
         sys.exit(5)
+
+    index = next_result_index(args.task_id)
 
     # Retrieve the execution evidence tar.
     tar_proc = worker_run(
@@ -188,13 +202,14 @@ def main() -> None:
         raw = base64.b64decode("".join(tar_proc.stdout.split()))
         out_dir = CAMPAIGN_ROOT / "results" / args.task_id
         out_dir.mkdir(parents=True, exist_ok=True)
-        evidence_path = out_dir / f"grade-evidence-{next_result_index(args.task_id)}.tgz"
+        evidence_path = out_dir / f"grade-evidence-{index:03d}.tgz"
         evidence_path.write_bytes(raw)
 
     verified = (
         grade_result["aggregate_status"] == "ok" and grade_result["task_score"] == 1.0
     )
-    index = next_result_index(args.task_id)
+    # `index` counts existing verification records; the evidence tar and the
+    # record share it so a rerun after an invalidated attempt gets a new pair.
     record_out = {
         "result_id": (
             f"{args.task_id}-cand-{record['script_sha256'][:12]}-"

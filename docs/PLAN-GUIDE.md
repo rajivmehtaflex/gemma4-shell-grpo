@@ -380,7 +380,7 @@ deliberate.
 
 ## 6. The nine phases, in plain language
 
-### Phase 0 — Repository and evidence contract · *setup complete; readiness checks unstarted*
+### Phase 0 — Repository and evidence contract · *complete (run P0-20261021T1140)*
 
 **Machine and skill:** Use `gh-cli-ops` to activate the CPU Codespace, finish the runtime, storage and orchestration checks, save their evidence, publish the milestone and stop the workspace. Repository creation itself is already done; no Pi-source sample is needed in this phase.
 
@@ -419,7 +419,7 @@ before trusting any results produced by it:
   skill — identity check, session selection, stop command — and record which skill revision was
   used, so the instructions themselves can be restored later.
 
-### Phase 1 — Prove the CPU grader before trusting rewards
+### Phase 1 — Prove the CPU grader before trusting rewards · *complete (run P1-20261021T1805; reports/phase1-grader.md)*
 
 **Machine and skill:** Activate the CPU Codespace with `gh-cli-ops`; build and check the whole grader/exercise phase, preserve its results, publish and stop.
 
@@ -782,44 +782,22 @@ on counting independent components is designed to prevent exactly that.
 
 ## 10. Where to start, concretely
 
-Phase 0's repository setup is done; what comes next is storage, workspace bootstrap, skill
-checks, the runtime capability contract and the orchestration smoke test, then the Phase 1
-specification on authored exercises. The `rajivmehtaflex` account, basic 2-core Codespace and
-$10/month ceiling are already recorded in STATE.md. Verify current access, storage capacity
-and deadline/stop readiness before activation through `gh-cli-ops`. CPU-only does not mean free.
-The Pi source audit is deferred until before Phase 3. Then:
+Phases 0 and 1 are complete. The recorded state as of 2026-10-21: the runtime capability
+contract and orchestration smoke evidence live in `reports/runtime-capabilities.md` and
+`reports/orchestration-smoke.md`; the CPU grader is built (`src/shell_grpo/`, Docker image
+pinned by digest in `containers/grader/Dockerfile`); twenty authored diagnostics with 121
+candidate scripts passed the 241-execution acceptance harness (`reports/phase1-grader.md`);
+and the ten collected Pi candidates were graded — seven verified, three failed with concrete
+defects recorded in `pi-sessions/manifest.jsonl`.
 
-1. **Set up and rehearse the workspace.** Claim the private controller-side `artifacts/` folder
-   and check its capacity against this phase's planned outputs. Let the first Codespace boot on
-   the repository's default setup and record what OS and tools it actually has. Do a read-only
-   dry run of each skill — identity check, session selection, stop command — and record the skill
-   revisions. Then run the orchestration smoke test: a tiny sentinel through connect →
-   disconnect/reconnect (confirming it is the same run, not a duplicate) → transfer → hash
-   compare → sanitized push → stop → closeout, plus a simulated failed upload and failed push to
-   prove partial copies are never treated as verified. Record it all in
-   `reports/orchestration-smoke.md`.
-2. **Record the runtime capability contract.** Write down the grading runner's host requirements
-   — architecture, namespaces, resource limits, unprivileged execution, fixture/result
-   transport, external verifier access, availability on candidate GPU host types — in
-   `reports/runtime-capabilities.md`, *before* picking an engine. The initial cross-machine
-   target is a pinned Linux/amd64 grading image; macOS development may use emulation. When this
-   gate opens, research current engine options with exa/Context7: Docker with a digest-pinned
-   image, Podman rootless, or `bubblewrap`/`nsjail` with a seccomp profile for a lighter-weight
-   sandbox.
-3. **Specify, then implement, the Phase 1 contracts.** Write and review the five exact prompts
-   (D01–D05 above), invocation examples, typed `TaskRecord`/`GradeResult` schema examples,
-   reward tables, and the scoring failure protocol *before* writing runner code. Then lock a
-   CUDA-free CPU environment, fresh per-candidate fixtures, and fixed utility versions, locale,
-   and timezone. Do not assume a container freezes the clock; if a task depends on the time,
-   define a reference time explicitly.
-4. **Build the five exercises end to end**, with the positive / alternate / wrong / repeatable
-   evidence attached to each.
-5. **Then** scale to ~20 diagnostics, and only after that think about GPU work.
-
-The readiness checks and all of Phase 1 are CPU-only. No GPU is needed yet, and nothing is
-blocked on GPU accelerator selection or Pi availability. CPU storage must be ready for Phase 0;
-durable GPU artifact storage must be ready before Phase 2. Private Pi-source access is checked
-when its audit becomes due before Phase 3 task construction.
+What comes next is Phase 2, and its prerequisites are user decisions plus one measurement,
+not code: confirm the Colab session name, pick durable private artifact storage (required
+before the first GPU run), verify CLI SSH/ADC prerequisites and compute-unit balance, then
+activate through `colab-ssh-setup` and measure the actual L4 burn rate on the sentinel
+subrun before any long job. On the GPU host, re-prove the same grading-contract checks that
+Phase 0 proved on the Codespace before loading weights. CPU follow-ups available in
+parallel: the failed Pi candidates (S04, S05, S08) may return to Pi under the
+≤3-candidates-per-task rule; the Pi source audit re-runs before Phase 3.
 
 ---
 

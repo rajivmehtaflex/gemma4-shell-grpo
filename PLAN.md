@@ -236,7 +236,7 @@ Aggregate execution status is the first status present in this precedence order:
 
 ## Current next action
 
-Phase 0 repository setup is complete and the repository is public. Next: activate/reconnect the CPU Codespace through `gh-cli-ops` (access, resources and budget are recorded), bootstrap the session, verify artifact capacity, perform the runtime/skill-readiness checks and the orchestration smoke test — the Pi source preflight re-runs before Phase 3 under the authored-first decision — then specify the five Phase 1 exercises, schemas, reward examples and failure protocol before implementing the CPU grader. No source audit, grader implementation, GPU compatibility experiment or training has been performed by updating this roadmap.
+Phases 0 and 1 are complete with recorded evidence (`reports/orchestration-smoke.md`, `reports/runtime-capabilities.md`, `reports/phase1-grader.md`): the restricted CPU grader runs twenty authored diagnostics end to end in a digest-pinned image, acceptance passed 241/241 executions at commit `ce96da6`, and seven of the ten collected Pi candidates verify through the grader. Next: Phase 2 — activate the named Colab GPU runtime through `colab-ssh-setup` (confirm the session name, measure the L4 burn rate on the sentinel subrun, record durable private storage before any model work), prove E4B compatibility, and measure the untouched checkpoint's baseline on these diagnostics. The Pi source preflight re-runs before Phase 3 under the authored-first decision. No GPU compatibility experiment or training has been performed by updating this roadmap.
 
 ## Review findings addressed
 
