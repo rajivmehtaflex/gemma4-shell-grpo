@@ -115,7 +115,7 @@ class RestrictedRunner:
     def _base_flags(self, name: str, instance_dir: Path, cand_dir: Path) -> list[str]:
         cfg = self.config
         flags = [
-            "run",
+            "docker", "run",
             "--name", name,
             "--network", "none",
             "-u", cfg.user,
