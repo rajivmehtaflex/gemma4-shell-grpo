@@ -172,10 +172,21 @@ register(
 # ---------------------------------------------------------------------------
 
 
-def _s09_term(term: str, expected_stdout: bytes | None, *, missing_file: bool = False):
+def _s09_term(
+    term: str,
+    expected_stdout: bytes | None,
+    *,
+    missing_file: bool = False,
+    failure_exit: int | None = None,
+):
+    """failure_exit: when set, the fixture expects that exact nonzero exit."""
     def build(root, rng: random.Random) -> GroundTruth:
         if not missing_file:
             put(root, "input.txt", S09_INPUT)
+        if failure_exit is not None:
+            return GroundTruth(
+                argv=[term, "input.txt"], expects_failure=True, expected_exit=failure_exit
+            )
         return GroundTruth(argv=[term, "input.txt"], expected_stdout=expected_stdout)
 
     return build
@@ -264,26 +275,27 @@ register(
             ),
             FixtureCase(
                 "s09-nomatch", 0.1, False,
-                _s09_term("zzz", None), _s09_nomatch_verify,
+                _s09_term("zzz", None, failure_exit=1), _s09_nomatch_verify,
             ),
             FixtureCase(
                 "s09-literal-brackets", 0.08, False,
-                _s09_term("[x]", None), _s09_nomatch_verify,
+                _s09_term("[x]", None, failure_exit=1), _s09_nomatch_verify,
             ),
             FixtureCase(
                 "s09-empty-term", 0.1, False,
-                _s09_term("", None), _s09_error_verify,
+                _s09_term("", None, failure_exit=2), _s09_error_verify,
             ),
             FixtureCase(
                 "s09-noargs", 0.1, False,
-                lambda root, rng: GroundTruth(argv=[]), _s09_error_verify,
+                lambda root, rng: GroundTruth(argv=[], expects_failure=True, expected_exit=2),
+                _s09_error_verify,
             ),
             FixtureCase(
                 "s09-multiline-term", 0.1, False, _s09_multiline_term, _s09_error_verify,
             ),
             FixtureCase(
                 "s09-missing-file", 0.1, False,
-                _s09_term("ERROR", None, missing_file=True), _s09_error_verify,
+                _s09_term("ERROR", None, missing_file=True, failure_exit=2), _s09_error_verify,
             ),
             FixtureCase(
                 "s09-unreadable", 0.1, False, _s09_unreadable, _s09_error_verify,
@@ -295,8 +307,8 @@ register(
             WrongScript("wrong-noop.sh", "zero", "prints nothing"),
             WrongScript("wrong-empty.sh", "zero", "empty file (invalid_script)"),
             WrongScript(
-                "wrong-starter.sh", "zero",
-                "the unmodified starter: regex metachars active, dash terms parsed as options",
+                "wrong-starter.sh", "partial",
+                "the unmodified starter: literal-dot and dash fixtures fail, ERROR-term and errors pass",
             ),
             WrongScript(
                 "wrong-grepi.sh", "partial",
@@ -355,8 +367,8 @@ register(
             WrongScript("wrong-noop.sh", "zero", "prints nothing"),
             WrongScript("wrong-empty.sh", "zero", "empty file (invalid_script)"),
             WrongScript(
-                "wrong-starter.sh", "zero",
-                "the unmodified starter: prints 0 and exits 0 on missing input (critical)",
+                "wrong-starter.sh", "partial",
+                "the unmodified starter: counts correctly but prints 0/exit 0 on missing input",
             ),
             WrongScript(
                 "wrong-set-e.sh", "partial",

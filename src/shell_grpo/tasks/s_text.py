@@ -312,7 +312,7 @@ register(
             WrongScript("wrong-noop.sh", "zero", "prints nothing"),
             WrongScript("wrong-empty.sh", "zero", "empty file (invalid_script)"),
             WrongScript(
-                "wrong-cut.sh", "zero",
+                "wrong-cut.sh", "partial",
                 "cut -d, -f1,2 breaks on quoted commas: parse-equivalence fails",
             ),
             WrongScript(

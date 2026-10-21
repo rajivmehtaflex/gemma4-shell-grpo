@@ -70,7 +70,7 @@ def _v01_collision_verify(ctx: VerifyContext) -> FixtureVerdict:
     if violation_if_changed(ctx, verdict, "", label="tree"):
         verdict.score = 0.0
         return verdict
-    verdict.score = 1.0
+    verdict.score = 1.0 if all(c.passed for c in verdict.checks) else 0.0
     return verdict
 
 
@@ -201,6 +201,27 @@ done
 """
 
 
+def _v03_verify(ctx: VerifyContext) -> FixtureVerdict:
+    """The prompt promises any entry order: compare the multiset of lines."""
+    verdict = FixtureVerdict()
+    expected = ctx.truth.expected_stdout.splitlines()
+    actual = ctx.stdout.splitlines()
+    ok = sorted(actual) == sorted(expected)
+    verdict.checks.append(
+        CheckResult(
+            "entry_multiset",
+            ok,
+            True,
+            f"{len(actual)}/{len(expected)} entry names match as a multiset",
+        )
+    )
+    if violation_if_changed(ctx, verdict, "", label="tree"):
+        verdict.score = 0.0
+        return verdict
+    verdict.score = 1.0 if ok else 0.0
+    return verdict
+
+
 def _v03_main(root, rng: random.Random) -> GroundTruth:
     names = ["plain.txt", "my file.txt", "-dash.txt", "tab\tname.txt", ".hidden"]
     expected = b""
@@ -243,7 +264,7 @@ register(
         ),
         invocation="solution.sh <directory>",
         fixtures=[
-            FixtureCase("v03-main", 0.5, True, _v03_main),
+            FixtureCase("v03-main", 0.5, True, _v03_main, _v03_verify),
             FixtureCase("v03-empty", 0.2, False, _v03_empty),
             FixtureCase("v03-noargs", 0.15, False, _v03_noargs),
             FixtureCase("v03-notdir", 0.15, False, _v03_notdir),
