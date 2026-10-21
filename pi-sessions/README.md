@@ -9,7 +9,10 @@ never become SFT targets.
 
 ## Fixed choices
 
-- **Operator:** the user, interacting with Pi directly.
+- **Operator:** the coding agent (user-delegated 2026-10-20). Sessions are **agent-driven
+  practice runs**: real Pi/model conversations on authored tasks, honestly labeled as such.
+  They are not organic human work and are never counted as Pi-derived task discoveries — the
+  task bank's source remains the authored briefs themselves.
 - **Pi:** v1.3.0 · provider `nvidia` · model `meta/muse-glimmer-30b` · thinking `medium`.
 - **Spending:** confirmed free or already-included quota only (`pi auth check` before each
   batch). Pause if coverage is unknown or exhausted; record `launch blocked`.
