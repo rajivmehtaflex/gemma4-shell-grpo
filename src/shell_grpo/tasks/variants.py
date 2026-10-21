@@ -17,6 +17,7 @@ from ..verifiers import (
     VerifyContext,
     score_copied_fraction,
     score_simple,
+    violation_if_changed,
 )
 from .base import FixtureCase, Task, WrongScript, register
 
