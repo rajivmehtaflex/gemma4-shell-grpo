@@ -316,8 +316,8 @@ register(
                 "cut -d, -f1,2 breaks on quoted commas: parse-equivalence fails",
             ),
             WrongScript(
-                "wrong-keeps-amount.sh", "partial",
-                "keeps three columns: header check fails but rows parse (0.5 cap on main)",
+                "wrong-keeps-amount.sh", "zero",
+                "kept header id,name,amount shifts the parser: every row reads as misaligned",
             ),
         ],
         notes=(

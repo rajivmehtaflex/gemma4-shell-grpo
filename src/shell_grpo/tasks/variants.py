@@ -207,19 +207,22 @@ def _v03_verify(ctx: VerifyContext) -> FixtureVerdict:
     verdict = FixtureVerdict()
     expected = ctx.truth.expected_stdout.splitlines()
     actual = ctx.stdout.splitlines()
+    expected_set = set(expected)
+    matched = sum(1 for line in actual if line in expected_set)
     ok = sorted(actual) == sorted(expected)
     verdict.checks.append(
         CheckResult(
             "entry_multiset",
             ok,
             True,
-            f"{len(actual)}/{len(expected)} entry names match as a multiset",
+            f"{matched}/{len(expected)} entry names match (order-insensitive)",
         )
     )
     if violation_if_changed(ctx, verdict, "", label="tree"):
         verdict.score = 0.0
         return verdict
-    verdict.score = 1.0 if ok else 0.0
+    extra = len(actual) - matched
+    verdict.score = 1.0 if ok else max(0.0, matched / len(expected)) if expected and extra == 0 else max(0.0, (matched - extra) / len(expected))
     return verdict
 
 
@@ -294,6 +297,20 @@ register(
 # ---------------------------------------------------------------------------
 
 
+def _v04_failure_verify(ctx: VerifyContext) -> FixtureVerdict:
+    """Missing/unreadable input must be refused; accepting it is critical."""
+    verdict = FixtureVerdict()
+    verdict.checks.append(
+        CheckResult("exit_nonzero", ctx.exit_code != 0, True, f"exit={ctx.exit_code}")
+    )
+    if ctx.exit_code == 0:
+        verdict.critical_violations.append("missing_input_accepted: exit 0 on unreadable input")
+        verdict.score = 0.0
+        return verdict
+    verdict.score = 1.0
+    return verdict
+
+
 def _slice_fixture(content: bytes | None, expected: bytes | None, *, missing: bool = False):
     def build(root, rng: random.Random) -> GroundTruth:
         if missing:
@@ -328,14 +345,17 @@ register(
             FixtureCase("v04-short", 0.2, True, _slice_fixture(_V04_SHORT, b"beta\n")),
             FixtureCase("v04-single-line", 0.1, False, _slice_fixture(b"only\n", b"")),
             FixtureCase("v04-empty", 0.1, False, _slice_fixture(b"", b"")),
-            FixtureCase("v04-missing", 0.1, False, _slice_fixture(None, None, missing=True),
-                        ),
+            FixtureCase(
+                "v04-missing", 0.1, False, _slice_fixture(None, None, missing=True),
+                _v04_failure_verify,
+            ),
             FixtureCase(
                 "v04-unreadable", 0.15, False,
                 lambda root, rng: (
                     put(root, "input.txt", b"secret\nlines\n", mode=0o000),
                     GroundTruth(argv=["input.txt"], expects_failure=True, expected_exit=2),
                 )[1],
+                _v04_failure_verify,
             ),
         ],
         reference="reference.sh",
