@@ -1,9 +1,9 @@
 # Grading image for the restricted runner (Phase 1).
-# Pinned base: debian:bookworm-slim (digest recorded in
-# reports/phase1-grader.md after the first build on the Codespace).
+# Base pinned by digest (amd64), recorded from the first Codespace build
+# 2026-10-21 and verified in reports/phase1-grader.md.
 # The candidate executes as an unprivileged numeric uid with LANG=C,
 # LC_ALL=C, TZ=UTC and this exact toolset; no network, no extra packages.
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 
 ENV DEBIAN_FRONTEND=noninteractive
 
