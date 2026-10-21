@@ -383,7 +383,7 @@ def _s03_archive_inside_src(root, rng: random.Random) -> GroundTruth:
 
 
 def _s03_src_inside_archive(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "outer/src")
+    mkdir(root, "outer/src")
     put(root / "outer/src", "old.bak", b"x\n")
     return _err(["outer/src", "outer"])
 
