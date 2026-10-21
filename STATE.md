@@ -8,6 +8,8 @@ Phase 0 readiness execution is complete (run `P0-20261021T1140`): the basic 2-co
 
 The smoke test executed only a harmless sentinel and capability probes — no generated scripts, no grader, no model code.
 
+**Closeout stop evidence:** the Codespace `fantastic-goggles-vrj5767px2xp57` was stopped via the `gh-cli-ops` workflow after the milestone commit was pushed and verified; the provider reports state `Shutdown` (verified via `gh codespace list`). Stopped, not deleted — retained storage counts against the recorded ceilings. Results commit: `8c6e55e`. This closeout commit is the final Phase 0 state checkpoint; the phase is complete only when it is synchronized with the remote.
+
 ## Decisions
 
 - Original Gemma 4 E4B instruction checkpoint; direct GRPO; no SFT stage.
