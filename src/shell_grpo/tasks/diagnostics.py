@@ -256,6 +256,10 @@ def _d03_single(root, rng: random.Random) -> GroundTruth:
     return GroundTruth(argv=["input.tsv"], expected_stdout=b"only\t41\n")
 
 
+def _d03_text_verify(ctx: VerifyContext) -> FixtureVerdict:
+    return score_text_output(ctx, ctx.truth.expected_stdout.splitlines())
+
+
 def _d03_empty(root, rng: random.Random) -> GroundTruth:
     put(root, "input.tsv", b"")
     return GroundTruth(argv=["input.tsv"], expected_stdout=b"")
@@ -279,8 +283,8 @@ register(
         fixtures=[
             FixtureCase("d03-empty", 0.15, False, _d03_empty),
             FixtureCase("d03-single", 0.15, False, _d03_single),
-            FixtureCase("d03-main", 0.4, True, _d03_main),
-            FixtureCase("d03-zeros", 0.3, True, _d03_zeros),
+            FixtureCase("d03-main", 0.4, True, _d03_main, _d03_text_verify),
+            FixtureCase("d03-zeros", 0.3, True, _d03_zeros, _d03_text_verify),
         ],
         reference="reference.sh",
         alternate="alternate.sh",

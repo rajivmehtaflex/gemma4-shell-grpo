@@ -41,6 +41,7 @@ def group_seed_for(task_id: str) -> int:
 def strip_volatile(result_dict: dict) -> dict:
     data = json.loads(json.dumps(result_dict))
     data.pop("artifacts", None)
+    data.pop("candidate_id", None)
     for fr in data.get("fixture_results", []):
         fr.pop("duration_ms", None)
         fr.pop("artifacts", None)

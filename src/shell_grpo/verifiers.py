@@ -230,7 +230,12 @@ def score_copied_fraction(
             + ("; " + "; ".join(failures[:8]) if failures else ""),
         )
     )
-    extras = sorted(set(dest) - set(required))
+    # Only non-directory entries count as extras: the directory skeleton is
+    # implied by preserving relative paths.
+    extras = sorted(
+        name for name, entry in dest.items()
+        if name not in required and entry.kind != "dir"
+    )
     if extras:
         if extra_is_critical:
             verdict.critical_violations.append(

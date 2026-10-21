@@ -72,6 +72,10 @@ def _s05_zeros(root, rng: random.Random) -> GroundTruth:
     )
 
 
+def _s05_text_verify(ctx: VerifyContext) -> FixtureVerdict:
+    return score_text_output(ctx, ctx.truth.expected_stdout.splitlines())
+
+
 def _malformed(content: bytes):
     def build(root, rng: random.Random) -> GroundTruth:
         put(root, "input.tsv", content)
@@ -99,10 +103,10 @@ register(
         ),
         invocation="solution.sh <input-file>",
         fixtures=[
-            FixtureCase("s05-main", 0.2, True, _s05_main),
+            FixtureCase("s05-main", 0.2, True, _s05_main, _s05_text_verify),
             FixtureCase("s05-single", 0.05, False, _s05_single),
             FixtureCase("s05-empty", 0.05, False, _s05_empty),
-            FixtureCase("s05-leading-zeros", 0.1, True, _s05_zeros),
+            FixtureCase("s05-leading-zeros", 0.1, True, _s05_zeros, _s05_text_verify),
             FixtureCase("s05-three-fields", 0.06, False, _malformed(b"a\t1\textra\n")),
             FixtureCase("s05-empty-key", 0.06, False, _malformed(b"\t5\n")),
             FixtureCase("s05-negative", 0.06, False, _malformed(b"k\t-5\n")),

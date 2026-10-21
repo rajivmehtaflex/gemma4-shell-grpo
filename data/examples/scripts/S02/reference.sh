@@ -26,9 +26,10 @@ if [ "$dst_abs" = "$src_abs" ] || inside "$src_abs" "$dst_abs"; then
     exit 2
 fi
 status=0
+cd "$src_abs" || exit 2
 while IFS= read -r -d '' f; do
     rel="${f#./}"
     mkdir -p "$dst_abs/$(dirname "$rel")" || { status=2; break; }
     cp -p -- "$f" "$dst_abs/$rel" || { status=2; break; }
-done < <(cd "$src_abs" && find . -type f -name '*.log' -print0)
+done < <(find . -type f -name '*.log' -print0)
 exit $status
