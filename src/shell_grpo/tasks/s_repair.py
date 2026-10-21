@@ -68,7 +68,7 @@ def _s08_main(root, rng: random.Random) -> GroundTruth:
     symlink(root / "src", "link-to-plain.txt", "plain.txt")
     mkdir(root / "src", "sub")
     put(root / "src", "sub/inner.txt", b"subdir must not copy\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": required})
 
 
@@ -82,8 +82,8 @@ def _copy_verify(ctx: VerifyContext) -> FixtureVerdict:
 
 
 def _s08_empty_src(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "src")
-    mkdir(root / "dst")
+    mkdir(root, "src")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": {}})
 
 
@@ -100,13 +100,13 @@ def _s08_dst_notdir(root, rng: random.Random) -> GroundTruth:
 
 def _s08_dst_notempty(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "plain.txt", b"x\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     put(root / "dst", "existing.txt", b"dst must stay unchanged\n")
     return _err(["src", "dst"])
 
 
 def _s08_src_missing(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return _err(["src", "dst"])
 
 

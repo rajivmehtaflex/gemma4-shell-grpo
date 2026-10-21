@@ -50,7 +50,7 @@ def _s01_main(root, rng: random.Random) -> GroundTruth:
 
 
 def _s01_empty(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "root")
+    mkdir(root, "root")
     return GroundTruth(argv=["root"], expected_stdout=b"0\n")
 
 
@@ -74,7 +74,7 @@ def _s01_notdir(root, rng: random.Random) -> GroundTruth:
 def _s01_unreadable(root, rng: random.Random) -> GroundTruth:
     import os
 
-    mkdir(root / "root")
+    mkdir(root, "root")
     put(root / "root", "hidden.txt", b"unreadable from outside\n")
     os.chmod(root / "root", 0o000)
     return GroundTruth(argv=["root"], expects_failure=True, expected_exit=2)
@@ -149,7 +149,7 @@ def _s02_main(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "read.me", b"unrelated\n")
     symlink(root / "src", "skip-link.log", "app.log")
     symlink(root / "src", "sub/link-dir", "logs")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": required})
 
 
@@ -164,7 +164,7 @@ def _copy_verify(ctx: VerifyContext) -> FixtureVerdict:
 
 def _s02_empty_src(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "notes.txt", b"no logs\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": {}})
 
 
@@ -173,7 +173,7 @@ def _err(argv: list[str]) -> GroundTruth:
 
 
 def _s02_dst_missing(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "src")
+    mkdir(root, "src")
     put(root / "src", "app.log", b"log\n")
     return _err(["src", "dst"])
 
@@ -186,7 +186,7 @@ def _s02_dst_notdir(root, rng: random.Random) -> GroundTruth:
 
 def _s02_dst_notempty(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "app.log", b"log\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     put(root / "dst", "existing.txt", b"dst must stay unchanged\n")
     return _err(["src", "dst"])
 
@@ -202,7 +202,7 @@ def _s02_dst_equals(root, rng: random.Random) -> GroundTruth:
 
 
 def _s02_src_missing(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return _err(["src", "dst"])
 
 
@@ -357,13 +357,13 @@ def _s03_none(root, rng: random.Random) -> GroundTruth:
 
 
 def _s03_archive_missing(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "src")
+    mkdir(root, "src")
     put(root / "src", "old.bak", b"x\n")
     return _err(["src", "archive"])
 
 
 def _s03_archive_notempty(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "src")
+    mkdir(root, "src")
     put(root / "src", "old.bak", b"x\n")
     mkdir(root, "archive")
     put(root / "archive", "existing.txt", b"archive must stay unchanged\n")
@@ -371,13 +371,13 @@ def _s03_archive_notempty(root, rng: random.Random) -> GroundTruth:
 
 
 def _s03_archive_equals(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "src")
+    mkdir(root, "src")
     put(root / "src", "old.bak", b"x\n")
     return _err(["src", "src"])
 
 
 def _s03_archive_inside_src(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "src")
+    mkdir(root, "src")
     put(root / "src", "old.bak", b"x\n")
     return _err(["src", "src/archive-sub"])
 
@@ -480,7 +480,7 @@ def _s04_main(root, rng: random.Random) -> GroundTruth:
 
 
 def _s04_empty(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "root")
+    mkdir(root, "root")
     return GroundTruth(argv=["root"], expected_stdout=b"")
 
 
@@ -497,7 +497,7 @@ def _s04_unreadable(root, rng: random.Random) -> GroundTruth:
     import os
     import stat as st
 
-    mkdir(root / "root")
+    mkdir(root, "root")
     os.chmod(root / "root", 0o000)
     return _err(["root"])
 

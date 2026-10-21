@@ -72,7 +72,7 @@ def _d01_decoys(root, rng: random.Random) -> GroundTruth:
 
 
 def _d01_empty(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "root")
+    mkdir(root, "root")
     return GroundTruth(argv=["root"], expected_stdout=b"0\n")
 
 
@@ -144,7 +144,7 @@ def _d02_main(root, rng: random.Random, variant: int) -> GroundTruth:
     put(root / "src", "read.me", b"unrelated\n")
     symlink(root / "src", "skip-link.log", "app.log")
     symlink(root / "src", "sub/link-dir", "logs")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": required})
 
 
@@ -159,7 +159,7 @@ def _d02_copy_verify(ctx: VerifyContext) -> FixtureVerdict:
 
 def _d02_empty_src(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "notes.txt", b"no log files here\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], expected_stdout=b"")
 
 
@@ -318,23 +318,23 @@ def _d04_main(root, rng: random.Random) -> GroundTruth:
     mkdir(root / "src", "subdir")
     put(root / "src", "subdir/inner.txt", b"not direct - must not copy\n")
     symlink(root / "src", "link.txt", "plain.txt")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": required})
 
 
 def _d04_empty_src(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "src")
-    mkdir(root / "dst")
+    mkdir(root, "src")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], expected_stdout=b"")
 
 
 def _d04_invalid_noargs(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=[], expects_failure=True, expected_exit=None)
 
 
 def _d04_invalid_src_missing(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], expects_failure=True, expected_exit=None)
 
 

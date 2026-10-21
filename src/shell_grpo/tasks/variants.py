@@ -42,20 +42,20 @@ def _v01_main(root, rng: random.Random) -> GroundTruth:
         put(root / "src", name, data)
         required[name.rsplit("/", 1)[-1]] = hashlib.sha256(data).hexdigest()
     put(root / "src", "notes.txt", b"not a log\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": required})
 
 
 def _v01_collision(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "one/app.log", b"first app log\n")
     put(root / "src", "two/app.log", b"second app log\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], expects_failure=True, expected_exit=None)
 
 
 def _v01_empty_src(root, rng: random.Random) -> GroundTruth:
     put(root / "src", "notes.txt", b"no logs\n")
-    mkdir(root / "dst")
+    mkdir(root, "dst")
     return GroundTruth(argv=["src", "dst"], extra={"dest": "dst", "required": {}})
 
 
@@ -139,7 +139,7 @@ def _v02_main(root, rng: random.Random) -> GroundTruth:
 
 
 def _v02_empty(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "root")
+    mkdir(root, "root")
     return GroundTruth(argv=["root"], expected_stdout=b"0\n")
 
 
@@ -211,7 +211,7 @@ def _v03_main(root, rng: random.Random) -> GroundTruth:
 
 
 def _v03_empty(root, rng: random.Random) -> GroundTruth:
-    mkdir(root / "root")
+    mkdir(root, "root")
     return GroundTruth(argv=["root"], expected_stdout=b"")
 
 
