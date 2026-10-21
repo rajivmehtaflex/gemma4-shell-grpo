@@ -1,0 +1,25 @@
+# Restricted runner configuration (Phase 1).
+# The pattern is proven in reports/runtime-capabilities.md: network-less,
+# non-root, explicit memory/pids/cpu bounds, read-only root filesystem.
+# Host defaults are unlimited, so every bound here is set explicitly.
+schema_version: "1.0.0"
+
+runner:
+  image: "shell-grpo/grader:1.0.0"
+  user: "1000:1000"
+  network: "none"            # enforced in code; declared here for the record
+  memory: "256m"
+  memory_swap: "256m"
+  pids_limit: "128"
+  cpus: "1.0"
+  time_limit_seconds: 20
+  syntax_check_seconds: 10
+  output_cap_bytes: 1048576
+
+environment:
+  LANG: "C"
+  LC_ALL: "C"
+  TZ: "UTC"
+
+retry:
+  infrastructure_attempts: 3   # 1 original + 2 retries of the exact script/fixture
