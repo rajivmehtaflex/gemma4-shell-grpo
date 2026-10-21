@@ -4,9 +4,9 @@ Updated: 2026-10-20 (Asia/Kolkata)
 
 ## Current milestone
 
-Phase 0 repository setup is complete and the repository is public. The current documentation milestone reconciles the authored-first phase gates, fixture/task scoring contract and final outcome classification following the review of commit `1d732d4`. GitHub Codespaces remains the CPU priority and Google Colab the GPU priority. Runtime/storage/orchestration checks, Phase 1 implementation and all model experiments remain unstarted; the Pi source audit is deferred until before Phase 3. Publication is verified after committing; this file does not embed its own containing commit SHA.
+Phase 0 readiness execution is complete (run `P0-20261021T1140`): the basic 2-core Codespace `fantastic-goggles-vrj5767px2xp57` was created from this repository at base commit `aec2338`, bootstrapped on its default image (Ubuntu 24.04.5, x86_64, Python 3.14.2, Docker 29.8.0 — versions recorded), and the orchestration smoke test passed end to end: sentinel + job record survived disconnect/reconnect with exactly one job (no duplicate), transfer to the controller verified by matching SHA-256 hashes, a simulated failed Git push left emergency copies intact with publication pending, a detached worker-side watchdog fired while the controller was disconnected, and the run journal has recoverable copies in two locations. `gh codespace cp` failed twice headless and is replaced by ssh-stream transfers (recorded). The runtime capability contract is written from live probes: Docker containers run as non-root with `--network none` (zero routes) — the Phase 1 grading pattern is proven on this host. Evidence: `reports/orchestration-smoke.md` and `reports/runtime-capabilities.md`. Phase 1 specification and implementation are next. No candidate script has been executed, no Pi session content has been audited, and no model work has started.
 
-No Codespace, Colab or Modal session activation, model loading, Pi-log ingestion, generated-script execution, GPU provisioning, or training has been performed by this documentation work.
+The smoke test executed only a harmless sentinel and capability probes — no generated scripts, no grader, no model code.
 
 ## Decisions
 
@@ -48,7 +48,7 @@ The runner capability contract must be recorded before Phase 1 implementation; s
 
 ## Next action
 
-CPU access, resources and budget are resolved. Activate the CPU Codespace from `rajivmehtaflex/gemma4-shell-grpo` through `gh-cli-ops` (basic 2-core), then execute Phase 0: claim the `artifacts/` handoff folder with a capacity check, bootstrap on the default image and record actual OS/tool versions, run the read-only skill dry-runs and the orchestration smoke test (including simulated failed upload/push recovery), and record the runtime capability contract. The Pi source preflight is deferred under the authored-first path and re-runs before Phase 3. Then specify the five Phase 1 exercises, typed schemas, reward examples and failure handling before CPU implementation. No GPU provisioning is needed.
+Phase 0 readiness is executed and published. Next: refine Phase 1 into executable tasks and implement the grader per its recorded contract — typed `TaskRecord`/`GradeResult` schemas first, then the Docker-based restricted runner (pattern proven in `runtime-capabilities.md`: `--network none`, non-root uid, explicit memory/pids bounds, ssh-stream transfers), then the five D01–D05 exercises with their worked boundary cases, then verification of the ten collected Pi candidates (≤3 attempts each), then ~20 diagnostics. The Pi source audit re-runs before Phase 3 under the authored-first decision. No GPU provisioning is needed.
 
 ## Provenance
 
