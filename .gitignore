@@ -6,6 +6,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.zcode/
 data/raw/
 data/processed/
 artifacts/
