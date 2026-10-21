@@ -410,6 +410,8 @@ def grade_script(
             )
             fixture_hashes[case.fixture_id] = instance.fixture_sha256
             attempt_dir = out_dir / f"fixture-{case.fixture_id}" if out_dir else None
+            if attempt_dir is not None:
+                attempt_dir.mkdir(parents=True, exist_ok=True)
             outcome = runner.run_fixture(
                 script_bytes, instance, support_files, attempt_dir
             )
