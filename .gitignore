@@ -18,3 +18,9 @@ runs/
 *.pt
 *.pth
 *.ckpt
+
+# Pi practice-session campaign (untracked materials)
+pi-sessions/raw/
+pi-sessions/work/
+pi-sessions/results/
+pi-sessions/private/
