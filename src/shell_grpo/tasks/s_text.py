@@ -110,7 +110,7 @@ register(
             FixtureCase("s05-plus", 0.06, False, _malformed(b"k\t+7\n")),
             FixtureCase("s05-float", 0.06, False, _malformed(b"k\t3.5\n")),
             FixtureCase("s05-missing", 0.08, False, lambda root, rng: _err(["input.tsv"])),
-            FixtureCase("s05-noargs", 0.08, False, _err([])),
+            FixtureCase("s05-noargs", 0.08, False, lambda root, rng: _err([])),
             FixtureCase(
                 "s05-unreadable", 0.08, False,
                 _unreadable_file("input.tsv"),
@@ -185,7 +185,7 @@ _S06_CASES = [
     ("s06-tricky", 0.2, True, _count_fixture("a", S06_TRICKY, 3)),
     ("s06-missing", 0.1, False, lambda root, rng: _err(["input.log"])),
     ("s06-unreadable", 0.15, False, _unreadable_file("input.log")),
-    ("s06-noargs", 0.1, False, _err([])),
+    ("s06-noargs", 0.1, False, lambda root, rng: _err([])),
 ]
 
 register(
@@ -300,7 +300,7 @@ register(
             FixtureCase("s07-unreadable", 0.08, False, _unreadable_file("input.csv")),
             FixtureCase("s07-bad-header", 0.08, False, _s07_bad_header),
             FixtureCase("s07-not-utf8", 0.08, False, _s07_not_utf8),
-            FixtureCase("s07-noargs", 0.08, False, _err([])),
+            FixtureCase("s07-noargs", 0.08, False, lambda root, rng: _err([])),
         ],
         reference="reference.sh",
         alternate="alternate.sh",

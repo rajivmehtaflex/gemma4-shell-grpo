@@ -324,7 +324,7 @@ _S10_CASES = [
         ("s06-tricky", 0.2, True, _count_fixture("a", S06_TRICKY, 3)),
         ("s06-missing", 0.1, False, lambda root, rng: _err(["input.log"])),
         ("s06-unreadable", 0.15, False, _unreadable_file("input.log")),
-        ("s06-noargs", 0.1, False, _err([])),
+        ("s06-noargs", 0.1, False, lambda root, rng: _err([])),
     ]
 ]
 
