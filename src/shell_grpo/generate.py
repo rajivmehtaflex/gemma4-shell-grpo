@@ -85,9 +85,19 @@ def load_model(cfg: ModelConfig):
     return model, tokenizer
 
 
+def _text_tokenizer(tokenizer):
+    """Gemma 4 ships a multimodal processor; chat templates go through its
+    inner TEXT tokenizer — the processor's own apply_chat_template routes
+    inputs through the image path and fails on text-only prompts (observed
+    on the Colab probe 2026-10-22; matches the Unsloth guide's pattern).
+    """
+    return getattr(tokenizer, "tokenizer", tokenizer)
+
+
 def render_prompt(tokenizer, user_content: str, cfg: ModelConfig) -> str:
     """Apply the Gemma 4 thinking chat template; strip the duplicated BOS."""
-    text = tokenizer.apply_chat_template(
+    tok = _text_tokenizer(tokenizer)
+    text = tok.apply_chat_template(
         [{"role": "user", "content": user_content}],
         tokenize=False,
         add_generation_prompt=True,
