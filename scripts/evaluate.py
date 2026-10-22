@@ -75,10 +75,20 @@ def main() -> int:
     }
 
     records = []
+    records_dir = out / "records"
     for task_id in wanted:
         task = get_task(task_id)
         for sample in range(samples):
             group_seed = seed_base + sample
+            rec_path = records_dir / f"{task_id}-{sample}.json"
+            if rec_path.exists():
+                # resume mode: a prior activation already banked this record
+                import types
+
+                data = json.loads(rec_path.read_text())
+                records.append(types.SimpleNamespace(**data))
+                print(f"[{task_id} #{sample}] resumed score={data.get('task_score')}", flush=True)
+                continue
             generation = generate_one(model, tokenizer, task.task_id, task.prompt, model_cfg)
             record = evaluate_completion(
                 task, generation, runner,
@@ -87,7 +97,7 @@ def main() -> int:
                 raw_dir=raw_dir,
                 support_files=support_map.get(task_id),
             )
-            (out / "records" / f"{task_id}-{sample}.json").write_text(
+            (records_dir / f"{task_id}-{sample}.json").write_text(
                 json.dumps(record.to_dict(), indent=2) + "\n"
             )
             records.append(record)
