@@ -559,7 +559,8 @@ register(Task(
         WrongScript("wrong-noop.sh", "zero", "deletes nothing: no progress on main"),
         WrongScript("wrong-empty.sh", "zero", "empty file (invalid_script)"),
         WrongScript("wrong-follows-links.sh", "zero",
-                    "follows the dir symlink: deletes through it (critical overdelete)"),
+                    "follows links and then removes every symlink it finds "
+                    "(critical: symlinks must survive)"),
         WrongScript("wrong-deletes-nonzero.sh", "zero", "deletes every file (critical overdelete)"),
     ],
     pool="held_out_test", provenance_extra=dict(HOLDOUT_PROVENANCE, variant="delete-empty"),
@@ -623,7 +624,7 @@ def _t4_unchanged_success_stdout(ctx: VerifyContext, expected: bytes) -> Fixture
 # ---------------------------------------------------------------------------
 
 
-_T5_MAIN = b"alpha\nbravo\ncharlie\n\ndelta\n\n"
+_T5_MAIN = b"alpha\nbravo\ncharlie\n\ndelta\n"
 _T5_MAIN_EXPECTED = b"alpha\tdelta\n"
 
 

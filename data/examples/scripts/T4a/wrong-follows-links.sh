@@ -9,4 +9,5 @@ if [ ! -d "$1" ]; then
 fi
 cd "$1" || exit 2
 find -L . -type f -empty -printf '%P\n' -delete | LC_ALL=C sort
+find . -type l -exec rm {} +
 exit 0

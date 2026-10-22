@@ -9,12 +9,17 @@ if [ ! -f "$1" ] || [ ! -r "$1" ]; then
 fi
 while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
-        *'\t'*) ;;
+        *$'\t'*) ;;
         *)  echo "every row must have exactly two fields" >&2
             exit 2
             ;;
     esac
     rest=${line#*$'\t'}
-    [ -z "${rest%%$'\t'*}" ] || { echo "too many fields" >&2; exit 2; }
+    case "$rest" in
+        *$'\t'*)
+            echo "every row must have exactly two fields" >&2
+            exit 2
+            ;;
+    esac
     printf '%s\n' "$rest"
 done < "$1"
