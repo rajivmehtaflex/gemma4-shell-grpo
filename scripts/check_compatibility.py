@@ -80,7 +80,7 @@ def main() -> int:
     model, tokenizer = load_policy_for_training(args.model_config, limits)
     model.train()
     prompt = render_prompt(tokenizer, all_tasks()[0].prompt, model_cfg)
-    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to("cuda")
+    inputs = tokenizer(text=prompt, return_tensors="pt", add_special_tokens=False).to("cuda")
     out = model(**inputs, labels=inputs["input_ids"], use_cache=False)
     loss = out.loss
     loss.backward()

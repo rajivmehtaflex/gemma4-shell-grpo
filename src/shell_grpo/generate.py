@@ -96,13 +96,13 @@ def render_prompt(tokenizer, user_content: str, cfg: ModelConfig) -> str:
     """
     if cfg.enable_thinking:
         system = "<|turn>system\n<|think|>\n<turn|>\n"
-        generation_prefix = "<|turn>model\n<|channel>thought\n<channel|>\n"
     else:
         system = ""
-        generation_prefix = "<|turn>model\n"
-    return (
-        f"{system}<|turn>user\n{user_content}<turn|>\n{generation_prefix}"
-    )
+    # The processor renders exactly this (observed via the inner tokenizer,
+    # Colab probe 2026-10-22): a <bos> prefix (stripped per config; training
+    # re-adds it) and NO thought-channel prefix — the model emits the
+    # <|channel>thought block itself.
+    return f"{system}<|turn>user\n{user_content}<turn|>\n<|turn>model\n"
 
 
 @dataclass
@@ -124,7 +124,9 @@ def generate_one(model, tokenizer, task_id: str, user_content: str, cfg: ModelCo
     prompt_text = render_prompt(tokenizer, user_content, cfg)
     import hashlib
 
-    inputs = tokenizer(prompt_text, return_tensors="pt", add_special_tokens=False).to("cuda")
+    # Gemma4Processor's first positional parameter is images; text must be
+    # passed by keyword (probe finding, 2026-10-22).
+    inputs = tokenizer(text=prompt_text, return_tensors="pt", add_special_tokens=False).to("cuda")
     started = time.monotonic()
     with torch.no_grad():
         out = model.generate(

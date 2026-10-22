@@ -68,7 +68,7 @@ def test_gemma4_prompt_template_frozen():
     assert rendered == (
         "<|turn>system\n<|think|>\n<turn|>\n"
         "<|turn>user\nCount the files.<turn|>\n"
-        "<|turn>model\n<|channel>thought\n<channel|>\n"
+        "<|turn>model\n"
     )
     cfg2 = ModelConfig(
         deployment_alias="gemma4:e4b", repo_id="r", revision="v", quantization="q",
