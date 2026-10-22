@@ -25,3 +25,7 @@ pi-sessions/work/
 pi-sessions/results/
 pi-sessions/private/
 data/dataset/test-release/
+
+# local scratch and conversation artifacts (never enter Git)
+baseline_tmp/
+GRPO-Shell-Scripts-Journey.pdf
