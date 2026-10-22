@@ -103,8 +103,10 @@ def main() -> int:
 
             @staticmethod
             def grade(task_id, script, seed, candidate_id):
+                # Deterministic but non-constant: a constant reward gives a zero
+                # advantage and the step proves nothing about the update path.
                 class R:
-                    task_score = 1.0 if "bash" in script else 0.0
+                    task_score = len(script) % 2
 
                 return R()
 
@@ -164,7 +166,7 @@ def main() -> int:
         adapter_dir = Path(tempfile.mkdtemp(prefix="adapter-"))
         model.save_pretrained(adapter_dir)
 
-        sample_inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to("cuda")
+        sample_inputs = tokenizer(text=prompt, return_tensors="pt", add_special_tokens=False).to("cuda")
         with torch.no_grad():
             before_ids = model.generate(
                 **sample_inputs, max_new_tokens=32, use_cache=True, do_sample=False
