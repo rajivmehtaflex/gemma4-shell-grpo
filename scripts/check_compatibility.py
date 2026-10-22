@@ -125,6 +125,7 @@ def main() -> int:
         trainer = GRPOTrainer(
             model=model,
             reward_funcs=reward_fn,
+            processing_class=tokenizer,  # mirrored pad/eos attrs; TRL must not infer its own
             args=GRPOConfig(
                 max_steps=limits.max_steps,
                 per_device_train_batch_size=1,
