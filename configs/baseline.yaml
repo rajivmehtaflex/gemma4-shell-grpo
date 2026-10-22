@@ -8,7 +8,10 @@ baseline:
   task_source: "data/examples/diagnostics.jsonl"
   tasks: "D01,D02,D03,D04,D05"  # Phase 2 reduced-budget weakness report (STATE.md scope decision)
   samples_per_task: 4          # fixed inference budget; seeds averaged within task
-  max_new_tokens: 1024         # thought channel consumed 512 whole in the probe
+  max_new_tokens: 2048         # probe+D01/D02 ran at 1024: the thought channel fills
+                               # 1024 before the answer fence closes (truncation was
+                               # the dominant failure mode; per-record settings
+                               # capture each record's actual budget)
   group_seed_base: 20261022
   extraction: "exactly one fenced bash block in the final response"
   grading:
