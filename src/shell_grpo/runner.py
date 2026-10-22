@@ -592,7 +592,7 @@ class NamespaceRunner:
 
         py = sp.Popen(
             [sys.executable, "-c", _NS_EXEC_SHIM],
-            stdin=sp.DEVNULL,
+            stdin=sp.PIPE,
             stdout=sp.PIPE,
             stderr=sp.PIPE,
         )
