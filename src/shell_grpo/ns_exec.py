@@ -68,7 +68,9 @@ def ns_exec(argv: list[str], env: dict[str, str], cwd: str) -> int:
         if os.read(r1, len(_READY)) != _READY:
             os.kill(pid, signal.SIGKILL)
             raise RuntimeError("child failed to create namespaces (userns disabled?)")
-        _write_map(pid, "setgroups", "deny")
+        # Parent is real root (CAP_SETGID over the child's namespace), so the
+        # gid_map needs no setgroups=deny — and the child must keep the right
+        # to clear its inherited supplementary groups.
         _write_map(pid, "gid_map", f"0 0 1\n1 {SUBUID_BASE} 65535\n")
         _write_map(pid, "uid_map", f"0 0 1\n1 {SUBUID_BASE} 65535\n")
     finally:
