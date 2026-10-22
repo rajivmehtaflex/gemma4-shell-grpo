@@ -1,0 +1,31 @@
+# Baseline measurement configuration (Phase 2): the untouched original
+# checkpoint under the exact settings later compared against the trained
+# policy. Primary endpoint: single-attempt full-pass rate over the twenty
+# diagnostics (DESIGN.md).
+schema_version: "1.0.0"
+
+baseline:
+  task_source: "data/examples/diagnostics.jsonl"
+  tasks: "all20"
+  samples_per_task: 8          # fixed inference budget; seeds averaged within task
+  group_seed_base: 20261022
+  support_files:
+    S07: ["filter_csv.py"]
+  extraction: "exactly one fenced bash block in the final response"
+  grading:
+    runner_config: "configs/runner.yaml"
+    image: "shell-grpo/grader:1.0.0"   # must exist on the scoring host; Colab re-proves
+                                       # the grading contract before scoring (PLAN)
+  report: "reports/baseline-diagnostics.md"
+
+grpo_train:
+  # Tiny limits for the compatibility probe; the pilot freezes real values in Phase 5.
+  max_steps: 2
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+  num_generations: 4
+  max_completion_length: 512
+  max_prompt_length: 1536
+  learning_rate: 1.0e-4
+  beta: 0.0                     # TRL default: group-relative advantage, no KL anchor
+  seed: 3407

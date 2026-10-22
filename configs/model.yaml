@@ -1,0 +1,49 @@
+# Model identity for direct-GRPO training (Phase 2).
+# The deployment alias `gemma4:e4b` is a deployment label (DESIGN.md); the
+# training identity is the exact repo + resolved commit recorded by
+# scripts/check_compatibility.py on the GPU host and then frozen here.
+schema_version: "1.0.0"
+
+model:
+  deployment_alias: "gemma4:e4b"
+  training_checkpoint:
+    repo_id: "unsloth/gemma-4-E4B-it"        # 16-bit mirror of google/gemma-4-E4B-it
+    revision: "TO_PIN_AT_COMPATIBILITY"      # resolved commit frozen by the probe
+    upstream_lineage: "google/gemma-4-E4B-it"
+  alt_repos:
+    - "google/gemma-4-E4B-it"
+    - "unsloth/gemma-4-E4B-it-unsloth-bnb-4bit"
+  quantization: "bitsandbytes 4-bit (QLoRA base)"  # Unsloth guide: E4B QLoRA ~17GB, fits L4
+  fast_inference: false                    # Gemma 4 RL is not vLLM-supported (documented)
+
+template:
+  chat_template: "gemma-4-thinking"
+  enable_thinking: true                    # native thought channel; only the final
+                                           # single ```bash block is ever executed
+  add_generation_prompt: true
+  strip_bos: true                          # guide: processor re-adds BOS for training
+
+limits:
+  max_seq_length: 2048
+  max_new_tokens: 512                      # diagnostics never need more; truncation recorded
+
+decoding:
+  # Gemma 4 recommended settings (Unsloth guide)
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 64
+  do_sample: true
+
+grpo:
+  fresh_lora: true                         # direct GRPO; no SFT stage, no prior adapter
+  lora:
+    r: 16
+    alpha: 16
+    dropout: 0
+    vision_layers: false
+    language_layers: true
+    attention_modules: true
+    mlp_modules: true
+  notes: >
+    r/alpha and hyperparameters are finalized from the compatibility probe and
+    frozen per experiment (STATE.md: Phase 5 finalizes from measured evidence).

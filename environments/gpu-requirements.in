@@ -1,0 +1,16 @@
+# GPU-side requirements for Phase 2 (Colab host).
+# Source of truth for environments/gpu.lock, which is RESOLVED AND FROZEN ON
+# THE GPU HOST during the compatibility probe (uv pip freeze), because CUDA /
+# unsloth builds are host-specific. Do not copy pins blindly (AGENTS.md rule);
+# this file lists direct dependencies only.
+
+unsloth
+trl
+transformers
+datasets
+peft
+accelerate
+bitsandbytes
+huggingface_hub
+torch
+pyyaml
