@@ -7,19 +7,25 @@ reinforcement learning, GRPO, Unsloth, and TRL.
 and [DESIGN.md](DESIGN.md) win. This guide exists to make PLAN.md readable on a first pass, and
 to say *why* each of its somewhat unusual strictness exists.
 
-**Status check while reading:** this repository currently contains planning documents only. No
-model has been loaded, no shell script has been generated or executed, no GPU has been rented, and
-no training has run. No Codespace, Colab runtime or Modal session has been activated by this documentation update. Everything below describes work that is planned, not work that has happened.
+**Status check while reading:** the infrastructure phases have now actually run. Phases 0–3
+are complete with recorded evidence: the CPU grader is built and accepted (241/241), the Colab
+L4 runtime has been activated for compatibility and baseline work, the untouched model's
+baseline weakness report is published, and the first task-bank release `bank-v1` is built and
+accepted (137/137 executions). **No policy training has happened** — that begins at Phase 6,
+after difficulty screening (Phase 4) and the frozen plan (Phase 5). Codespaces and Colab have
+both been activated and stopped under the recorded lifecycle; no runtime is running between
+phases.
 
-**Where the work will happen:** ordinary CPU phases use **GitHub Codespaces** through the
+**Where the work happens:** ordinary CPU phases use **GitHub Codespaces** through the
 `gh-cli-ops` skill; model/GPU phases use **Google Colab** through `colab-ssh-setup`. Each phase
 includes starting or reconnecting to its machine, doing the whole phase, saving the results,
 committing/pushing its milestone, and stopping the machine. Section 4 explains this workflow.
 
-**Where tasks come from:** start with authored exercises in Phases 0/1. Audit available Pi
-sessions before Phase 3; use Pi-derived additions only if that audit supports them. An
-authored-only task bank is the already selected fallback, so Pi availability does not block
-the initial CPU grader work.
+**Where tasks come from:** authored exercises — now confirmed by evidence. The Phase 3 source
+preflight inspected the one naturally available Pi session and it yielded 0/5 plausible
+exercises (it contained only Pi self-configuration, no shell work), so the pre-selected
+authored-only fallback applies to release `bank-v1`. A future real Pi corpus can revisit this
+without reopening the decision.
 
 ---
 
@@ -273,6 +279,11 @@ and publication used at the end of every phase, including Colab phases.
 
 ### 4.1 The same complete cycle in every phase
 
+Before every activation, re-read the **"Execution lessons learned (Phases 0–3)"** section near
+the end of PLAN.md — every pitfall actually hit so far (Codespace idle stops, Colab runtime
+reclaim, Gemma 4 processor quirks, fixture-authoring traps) is pre-recorded there with its
+prevention rule as a binding part of the contract.
+
 1. **Check the starting point.** Read STATE.md and the phase requirements. Confirm the right
    source-code version, files, account, machine resources, storage and spending limit. The
    controller also keeps a private per-run record folder (Git-ignored `runs/<run-id>/`) and
@@ -482,97 +493,98 @@ reward says. A broken grader does not merely add noise — it teaches the model 
 it does so while the loss curve looks perfectly healthy. Building tasks before the grader is
 known-good means every task inherits an unvalidated measurement instrument.
 
-### Phase 2 — Prove E4B compatibility and measure the original model
+### Phase 2 — Prove E4B compatibility and measure the original model · *complete (runs P2-20261022TActiv + P2-20261022B; reports/baseline-diagnostics.md)*
 
 **Machine and skill:** Activate Colab GPU with `colab-ssh-setup`; finish compatibility and baseline measurements, save the evidence, publish through the GH workflow and stop Colab.
 
-Now activate the chosen Colab GPU runtime — but first confirm the runner still enforces the Phase 1 isolation contract on
-that host, and that the host is not allowed to proceed if it cannot. Then:
+This phase ran on the Colab L4 (`g-check-pi-exp`) and is complete. What it proved, in order:
 
-- before any model generation, push the same tiny sentinel through the Colab SSH bridge:
-  confirm the job identity and its exit record survive a disconnect/reconnect, copy its private
-  output to the controller and compare hashes, and test how the chosen stop/`--rm` behavior
-  treats the runtime — this rehearsal is recorded in `reports/orchestration-smoke.md` before any
-  long training job is trusted to it;
-- pin the exact upstream checkpoint and tokenizer revision, plus precision, template, thinking
-  mode, and decoding settings;
-- verify that attaching a **fresh** adapter does not change the initial baseline beyond a
-  documented numeric tolerance (this is the "no SFT" rule under test);
-- demonstrate finite gradients, a **nonzero change in trainable parameters**, correct
-  prompt/candidate/reward alignment, and adapter save/reload;
-- introduce the minimal shared `generate.py` / `evaluate.py` / `train.py` entry points that the
-  baseline, screening, pilot, and main runs all reuse — the compatibility probe deliberately
-  exercises the same training path as the later pilot, just with tiny limits, and every
-  evaluation produces a per-task/per-candidate record (hashes, complete script, score, checks,
-  status, truncation, timing) that all later comparisons reuse;
-- record generation/grading wall time, peak VRAM, and CPU utilization — and pick hardware from
-  those measurements;
-- then, in a **separate process**, reload the untouched original policy and measure the baseline
-  weaknesses honestly, diagnosing in a fixed order: extraction/runner defects first, then
-  template/truncation/runtime problems, then actual shell behavior.
+- **The isolation contract survives without Docker.** The Colab host has no Docker daemon (and its
+  kernel forbids forks inside a PID namespace), so the same restricted-grading rules were re-proved
+  through a new *namespace engine* (`src/shell_grpo/ns_exec.py`): user+network namespaces with a
+  direct uid-map write give an unprivileged, network-less candidate with `/root` protected. The
+  "SSH login environment is not a grader" rule held — the contract was ported, not waived.
+- **The sentinel came first.** A tiny job survived disconnect/reconnect with a hash-matched copy
+  before any model work, and the L4 burn rate was measured (~2.8 L4-hours for the activation)
+  before any long job.
+- **The compatibility probe passed 6/6**: checkpoint pinned (`unsloth/gemma-4-E4B-it` at a frozen
+  revision), finite loss/gradients with a fresh LoRA (34.9M trainable params at r=16), a real
+  tiny GRPO step, adapter save/reload byte-identical, and thinking-mode generation at
+  ~0.2 s/token. The dependency lock (`gpu.lock`, 107 pins) was frozen on the GPU host.
+- **Real Gemma 4 gotchas were hit, not just read about**: the processor takes text only as a
+  keyword argument (first positional is images), pad/eos attributes must be mirrored onto it, and
+  `processing_class` must be passed explicitly to `GRPOTrainer`. These are now fixes in the repo's
+  `generate.py`/`train.py`, not folklore.
+- **Durable private storage went live before any model output existed**: a private Hugging Face
+  repo — made private and *verified* (anonymous access → 401) after the upload tool turned out to
+  create repos public by default.
+- **The baseline was measured honestly**: the user-approved reduced scope (D01–D05, 4 samples
+  each) scored **0/20 full passes, mean reward 0.241, zero critical violations**. The diagnosis
+  order paid off — several failures were harness-side truncation (1024 tokens was too small; the
+  thinking channel alone consumed the budget), now recorded as per-task budgets (≥2048 where
+  truncation dominated). Huge GRPO headroom with partial-credit density on D01/D05.
 
-That diagnosis order is a nice piece of engineering reasoning: before blaming the model for
-writing bad scripts, prove the harness is not stealing its output.
+The run survived three Colab runtime recycles (runtimes are reclaimed whenever no client is
+connected — a lesson now binding in PLAN.md). The GPU was released after the weakness report was
+published and everything synced.
 
-Two Gemma 4 specifics make this phase genuinely necessary rather than bureaucratic. Unsloth's
-docs record a bug where `use_cache=False` — which QLoRA tutorials commonly set, and which
-`gradient_checkpointing=True` forces — corrupts Gemma 4 E2B/E4B attention (these models share KV
-state across layers), producing garbage logits and diverging training loss. Unsloth also notes
-that a training loss of 13–15 is *normal* for Gemma 4 E2B/E4B, and documents a separate
-gradient-accumulation bug that inflates reported loss. A beginner would reasonably conclude that
-training is broken; the plan's demand for recorded compatibility evidence exists precisely so
-these known quirks are separated from genuine failures.
+Two *documented* Gemma 4 quirks still await the training phases (6–7) and are why the
+compatibility probe deliberately exercised the real training path with tiny limits:
+`use_cache=False` — which QLoRA tutorials commonly set — corrupts E2B/E4B attention (garbage
+logits, diverging loss), so `use_cache=True` is mandatory at generation; and a training loss of
+13–15 is *normal* for these models, as is a gradient-accumulation quirk that inflates reported
+loss. Whoever watches the pilot's first steps should not mistake either for breakage.
 
-The phase ends with a baseline weakness report, and the GPU is released.
-
-### Phase 3 — Audit sources and build the reviewed task bank (CPU)
+### Phase 3 — Audit sources and build the reviewed task bank (CPU) · *complete (run P3-20261022T1900; reports/dataset-audit.md)*
 
 **Machine and skill:** Activate the CPU Codespace with `gh-cli-ops`; finish dataset construction and its audit, save the private dataset, publish sanitized results and stop.
 
-First perform the deferred Pi source audit: privately stage user-designated sessions, inspect
-up to ten representative sessions, and seek at least five plausible exercises across the initial
-categories. Record schema versions, command/tool evidence, missing filesystem state,
-reconstruction effort and exclusions in `reports/source-preflight.md`; publish only sanitized
-counts and provenance hashes. Counting session files alone does not establish usable task yield.
+This phase ran and is complete — on the **authored-only** path, exactly as the fallback
+anticipated:
 
-If the corpus is insufficient, continue with authored task construction under the existing
-fallback decision. Skip the Pi parser and raw-log extraction work. If viable Pi material exists,
-use it alongside authored tasks and label their origins honestly. Authored tasks record
-`source: authored` and an authoring rationale; shared templates link them for split grouping.
-Both paths target the measured Phase 2 weaknesses and must pass identical grader checks.
+- **The source preflight ran first and settled the question.** The one naturally available Pi
+  session contained only Pi self-configuration (no shell work at all): exercise yield **0/5**,
+  below the five-exercise bar. So no Pi parser was built and every task carries honest
+  `source: authored` provenance (`reports/source-preflight.md`). A future real Pi corpus can
+  revisit this without reopening the decision.
+- **Twelve held-out tasks were authored**: T1a–T6b, six task families (dedup+order, column
+  projection, suffix/prefix rename, zero-byte janitor, head–tail pair, line numbering) whose
+  solution patterns deliberately overlap *no* development family — plus 65 candidate scripts
+  (reference, alternate, and wrong scripts per task).
+- **Splits were assigned by connected component, kept whole.** Release `bank-v1` (seeded,
+  hash-pinned in `data/dataset/bank-v1/`) groups 32 tasks into 26 components over 21 families,
+  with actual counts **11 train / 9 validation / 12 test** — reported as achieved rather than
+  forcing the 60/20/20 aspiration by splitting related tasks. Integrity checks confirm no family
+  spans two splits and the test pool contains *exclusively* held-out tasks. The known-good
+  regression subset is a recorded deviation: the baseline had zero full-task successes to lock,
+  so it degrades to the D01/D05 known-goods plus their fixture-level baseline successes.
 
-When using Pi material, the plan is strict about provenance because a session log contains many
-things that are not correctness evidence.
+  **Why components and not a random shuffle?** Because near-duplicate tasks leak. A paraphrased
+  variant of a training task sitting in the test set inflates your result. The plan keeps
+  variants, paraphrases, templates, and diagnostic derivatives in the *same* split by building a
+  relationship graph and assigning whole connected components to one split — and forbids choosing
+  test membership by looking at model scores. Diagnostics and their derivatives stay in the
+  development pool, never in the final unseen test set.
+- **The full acceptance harness then tried to break the bank — and succeeded three times.**
+  137 executions at the published commit now pass, but getting there caught six real
+  authoring/grader bugs: error-expecting fixtures whose ground truth declared success (the
+  engine misclassified the script's *correct* exit-2), a verifier that wrapped a boolean in
+  `all()`, fixture *data* that was wrong while both scripts were right (a trailing blank line
+  changed "last line" semantics), bash `globstar` silently descending directory symlinks, a
+  `case` pattern matching the literal two characters `\t`, and an anti-pattern wrong-script that
+  passed by traversal-order luck (now made deterministically observable). This is the
+  "trust the instrument before using it" principle doing its job — host unit tests with
+  synthetic contexts caught none of these; only real grader execution did.
+- **Reward ceilings against known hacks are now measured, not assumed**: a no-op earns 0,
+  hard-coding the example answer caps at 0.7, skipping a stated validation requirement caps at
+  0.85, and any critical violation zeroes the whole task. Full reward is unreachable by any
+  shortcut recorded so far.
 
-What counts as raw evidence: the session JSONL branch, the original user requirements, the exact
-commands and their arguments, the tool outputs, the source model and runtime settings, and the
-initial files/bytes/permissions needed to reproduce the task. What does **not** count:
-compaction summaries and assistant answers that *look* successful. Those are discovery aids.
-
-Handling rules: preserve raw sources privately and create sanitized derivatives; mark
-reconstructed environments as *reconstructed*, not as historical snapshots; if the original state
-is missing, either reproduce the behavior in a newly authored fixture or exclude the task; and
-remove secrets and private content from anything publishable.
-
-Then build tasks to target the **measured** Phase 2 weaknesses, cluster them into families and
-source clusters, and assign train/validation/test splits **before** generating variants — with
-held-out families reserved to measure transfer.
-
-**Why split by family and source cluster, and not by random shuffle?** Because near-duplicate
-tasks leak. A paraphrased variant of a training task in the test set inflates your result. The
-plan keeps variants, paraphrases, branches, and closely related source tasks in the same split,
-and forbids choosing test membership by looking at model scores.
-
-The current plan makes this concrete: build a relationship graph over shared source episodes,
-forks, paraphrases, templates, and diagnostic derivatives, and assign whole connected components
-to one split, targeting roughly 60/20/20 across train/validation/test while reporting the actual
-counts achieved. Diagnostics and their derivatives never enter the final unseen test set, and a
-small known-good shell regression subset — tasks the original baseline already solves — stays
-locked inside validation for every later policy comparison.
-
-Every task must pass the Phase 1 acceptance checks, and no generated answer ever becomes a
-training target. Reference solutions may validate fixtures and graders; they are not examples to
-imitate.
+The full audit — composition, leakage checks, acceptance rounds, deviations — lives in
+`reports/dataset-audit.md`. One subtlety worth knowing: `bank.jsonl` records the tasks but not
+the wrong-script expectations or fixture ground truths — those live in registry code, so grader
+behavior is pinned by the *code commit* (`ffd1f4d`), and any future task change must re-run
+acceptance at the exact published commit.
 
 ### Phase 4 — Screen training difficulty with the untouched policy
 
@@ -782,22 +794,32 @@ on counting independent components is designed to prevent exactly that.
 
 ## 10. Where to start, concretely
 
-Phases 0 and 1 are complete. The recorded state as of 2026-10-21: the runtime capability
-contract and orchestration smoke evidence live in `reports/runtime-capabilities.md` and
-`reports/orchestration-smoke.md`; the CPU grader is built (`src/shell_grpo/`, Docker image
-pinned by digest in `containers/grader/Dockerfile`); twenty authored diagnostics with 121
-candidate scripts passed the 241-execution acceptance harness (`reports/phase1-grader.md`);
-and the ten collected Pi candidates were graded — seven verified, three failed with concrete
-defects recorded in `pi-sessions/manifest.jsonl`.
+Phases 0–3 are complete. The recorded state as of 2026-10-22:
 
-What comes next is Phase 2, and its prerequisites are user decisions plus one measurement,
-not code: confirm the Colab session name, pick durable private artifact storage (required
-before the first GPU run), verify CLI SSH/ADC prerequisites and compute-unit balance, then
-activate through `colab-ssh-setup` and measure the actual L4 burn rate on the sentinel
-subrun before any long job. On the GPU host, re-prove the same grading-contract checks that
-Phase 0 proved on the Codespace before loading weights. CPU follow-ups available in
-parallel: the failed Pi candidates (S04, S05, S08) may return to Pi under the
-≤3-candidates-per-task rule; the Pi source audit re-runs before Phase 3.
+- **Grader (Phase 1):** built and accepted — twenty authored diagnostics, 241/241 acceptance
+  executions in a digest-pinned image (`reports/phase1-grader.md`); seven of the ten collected Pi
+  candidates verified through it.
+- **GPU compatibility + baseline (Phase 2):** Colab L4 probe passed 6/6 with the namespace
+  grading engine re-proving isolation on a Dockerless host; `gpu.lock` frozen; durable private
+  HF storage live (privacy verified); the untouched model scored **0/20 full passes, mean 0.241**
+  (`reports/baseline-diagnostics.md`) — huge headroom, with per-task budgets recorded (≥2048
+  tokens where truncation dominated).
+- **Task bank (Phase 3):** authored-only after the 0/5 preflight; release `bank-v1` — 32 tasks,
+  26 components kept whole, splits 11/9/12, held-out test pool T1–T6 — accepted 137/137
+  executions at `ffd1f4d` (`reports/dataset-audit.md`).
+- **Everything is stopped**: no Codespace or Colab runtime is running between phases; results
+  and closeout commits are synced with the remote.
+
+What comes next is **Phase 4 — difficulty screening with the untouched policy**, on Colab. The
+inputs it needs all exist: the bank-v1 development-pool tasks, the frozen gpu.lock, the namespace
+engine, the generate/evaluate entry points, and the baseline budgets. It generates eight
+candidates per training prompt, grades them through the frozen grader, and applies the
+predeclared readiness thresholds (≥25% informative tasks in both screenings, ≥5 families) to
+decide which tasks enter the Phase 5 frozen plan. Before activating Colab, re-read the
+**"Execution lessons learned (Phases 0–3)"** section in PLAN.md — it is binding, and it is the
+difference between repeating six known failures and skipping them. One standing scope note: the
+matched-budget baseline comparison belongs to the Phase 5 frozen plan, and queued operational
+debt says raw completions must sync on the same cadence as records.
 
 ---
 
