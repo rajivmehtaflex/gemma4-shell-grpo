@@ -45,7 +45,7 @@ The controller resolves the installed skills by name, reads their current instru
 
 Track work, artifact transfer, Git publication, machine shutdown and closeout as separate milestones. Phase status can be `ready`, `running`, `interrupted`, `work_verified`, `artifacts_verified`, `publish_pending`, `machine_stopped`, `closeout_pending` or `complete`; the per-run record keeps milestone evidence even when phase status is interrupted. Resume from the first unverified milestone without repeating verified compute. Mark complete only after the result commit and sanitized shutdown closeout commit both match the GitHub remote.
 
-**Mandatory lifecycle, inherited by every phase:**
+**Mandatory lifecycle, inherited by every phase:** Before each activation, re-read **Execution lessons learned (Phases 0–3)** near the end of this file — every pitfall hit so far is pre-recorded there with its prevention rule; a re-execution that follows it skips those failures.
 
 1. **Read state and check readiness:** verify prerequisites, source Git SHA, artifact hashes, authentication, selected resources, session identity, duration/spend ceiling and output storage. Establish the private controller-side `artifacts/` directory before the first cloud phase and check free capacity against that phase's planned output size. Before GPU work, select and test an independent durable private copy for model checkpoints; the controller directory remains the retrieval copy. Confirm the Colab session name before first provisioning as its skill requires. Source access and storage capacity must be ready before moving private material.
 2. **Bootstrap or activate:** Phase 0 may create a Codespace from the repository's default environment and record its actual OS/Python/GH versions; a locked project environment does not exist yet. From Phase 1 onward, restore the pinned environment. For later phases, inspect existing sessions first, reconnect/start the suitable one, or create one only when needed. For CPU use Codespaces; for GPU use a named Colab runtime. Record the actual provider-generated ID, SSH target, workspace and hardware. Do not treat an alias as proof of a live machine. Confirm no run already owns that worker/branch before starting another.
@@ -237,6 +237,47 @@ Aggregate execution status is the first status present in this precedence order:
 ## Current next action
 
 Phases 0–3 are complete with recorded evidence (`reports/orchestration-smoke.md`, `reports/runtime-capabilities.md`, `reports/phase1-grader.md`, `reports/baseline-diagnostics.md`, `reports/dataset-audit.md`): the restricted CPU grader runs twenty authored diagnostics end to end in a digest-pinned image (acceptance 241/241 at `ce96da6`); seven of the ten collected Pi candidates verify through the grader; the Colab L4 compatibility probe passed with the namespace grading engine re-proving the isolation contract on a Dockerless host, `gpu.lock` frozen, and durable private HF storage live; the untouched checkpoint's reduced baseline (D01–D05 ×4) scored 0/20 full passes (mean 0.241); the Pi source preflight yielded 0/5, so the authored-only path built release `bank-v1` — 32 tasks, components kept whole across splits (11/9/12), held-out test pool T1–T6 accepted 137/137 executions at `ffd1f4d`. Next: Phase 4 — screen training difficulty with the untouched policy on Colab (eight candidates per training prompt; readiness thresholds decide which tasks enter the frozen Phase 5 plan). No training has been performed by updating this roadmap.
+
+## Execution lessons learned (Phases 0–3)
+
+Recorded 2026-10-22 from live execution evidence (Phase 1–3 reports, run records, STATE.md ledger). These are binding execution rules, not suggestions: each entry was an actual failure or near-miss whose prevention is now part of the contract.
+
+### Provider operations — Codespaces
+
+- `gh codespace ssh` does not preserve quoting on multi-word remote commands. Worker scripts travel as base64 on stdin: `base64 < script | gh codespace ssh -c NAME -- 'base64 -d | bash'`.
+- `gh` has no `codespace start` (ssh auto-starts a stopped Codespace). `gh codespace cp` requires the `remote:`/`local:` prefix and has failed even then; the reliable transfer is streaming: `gh codespace ssh -c NAME -- 'base64 -w0 <remote-path>' | base64 -d > <local-path>` (works in both directions).
+- An idle Codespace stop (default 30 min) kills detached processes **and wipes `/tmp`** — Phase 3's first acceptance run was lost this way. Run outputs go under `/workspaces/<dir>` (persistent across stop/start); keep a short SSH poll every few minutes to reset the idle timer; before relaunching anything, verify the old process is dead in the process table (never duplicate a possibly-running job).
+- Host pytest is not worker pytest: Docker-gated tests skip on the macOS host (58 local vs 69 on the Codespace). The recorded suite must run on the execution host.
+
+### Provider operations — Colab
+
+- Runtimes are reclaimed when **no client is connected**, even with processes running — nohup alone is not survival. Hold a client connection (streamer/watchdog) for the whole job; records must support resume from durable storage.
+- Connecting the colab CLI to an absent session name **silently auto-creates a CPU runtime**. Always create explicitly (`colab new --gpu L4`) and verify the accelerator before work.
+- Expect a ~60 s SSH-slot cooldown (HTTP 429) after an unclean disconnect. Colab sessions are not resumable like Codespaces — every activation re-creates the runtime, so durable storage must run first.
+- Sync raw completions on the same cadence as records: a recycled runtime lost the final baseline run's raw completions (extracted scripts survived in records).
+- `hf upload` creates the target repo **public** by default. Flip it private and verify anonymous access returns 401 before uploading anything model-related.
+
+### Task-bank authoring and acceptance (grader contract)
+
+- An error-expecting fixture must declare the failure in its **GroundTruth** (`expects_failure`/`expected_exit`, the `_err` idiom), not only in the verifier: a success-declaring GroundTruth makes the engine classify the script's *correct* nonzero exit as `runtime_error` before the verifier runs.
+- When reference AND alternate fail together, suspect the **fixture data** first: a trailing blank line changed "last line" semantics so the authored expectation was wrong while both scripts were right (T5a).
+- Wrong-script expectations follow the recorded taxonomy: `zero` only for no-progress or critical-violation wrongs; hardcoded or partially-compliant scripts legitimately earn **partial** (observed ceilings: hardcode 0.7, validation-skipping 0.85 — full reward stays unreachable, which is the actual requirement).
+- An anti-pattern must be **deterministically observable**: order-dependent flaws (e.g. `find -L` deleting a symlink's target before the symlink is visited) can pass by readdir luck. Model the flaw so a survivor/anti-mutation check trips regardless of traversal order.
+- bash pitfalls that pass `bash -n` and synthetic unit tests: `case "$x" in *'\t'*)` matches the literal two characters backslash-t (use `$'\t'`); `globstar` (`**`) **silently descends directory symlinks**; `all(<single boolean>)` in a verifier is a TypeError. Only real grader execution catches these — host tests with synthetic verify-contexts did not.
+- Grading containers stage **only the fixture workdir** (`-v instance_dir:/work`): fixture builders must not reference anything outside it — an outside-root symlink dangles in-container and a "deterministic catch" silently no-ops.
+- Every new task family runs the full acceptance harness (reference/alternate ×3 repeats byte-identical, wrongs vs declared expectations) at the exact published commit before the bank is trusted — `bank.jsonl` does not embed wrongs/fixtures, so behavior is pinned by the code commit, and bank-v1 needed three acceptance rounds to get there (findings enumerated in `reports/dataset-audit.md`).
+
+### GPU / model stack (Gemma 4 + Unsloth/TRL)
+
+- `Gemma4Processor` takes text **only as a keyword** (`text=`) — the first positional parameter is images, and `apply_chat_template` routes text into the image path. The frozen chat template is applied manually in `generate.py`.
+- Mirror pad/eos attributes onto the processor and pass `processing_class` explicitly to `GRPOTrainer` (pad_token_id AttributeError otherwise).
+- Gemma 4 RL requires `fast_inference=False` (no vLLM path); `use_cache=True` is mandatory at generation; the thinking channel consumed all 512 tokens, so evaluation budgets are ≥1024 and prefer 2048 (truncation dominated D02 at 1024).
+- Dockerless GPU hosts: the namespace engine (`ns_exec.py`) replaces Docker — user+net namespaces with a direct `/proc/<pid>/uid_map` write from the real-root parent. This kernel forbids fork inside a non-init PID namespace (child forks ENOMEM), so **no PID namespace**; bwrap cannot nest user namespaces and util-linux `--map-users` drops the caller from its own map.
+
+### Publication and hygiene
+
+- Four GitHub accounts are logged in on the controller; confirm the active account is `rajivmehtaflex` before any push.
+- Compute every published number with code, never copy-forward — a report mean had to be corrected (0.28 → 0.241) after being carried between drafts.
 
 ## Review findings addressed
 
