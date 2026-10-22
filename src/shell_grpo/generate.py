@@ -85,27 +85,24 @@ def load_model(cfg: ModelConfig):
     return model, tokenizer
 
 
-def _text_tokenizer(tokenizer):
-    """Gemma 4 ships a multimodal processor; chat templates go through its
-    inner TEXT tokenizer — the processor's own apply_chat_template routes
-    inputs through the image path and fails on text-only prompts (observed
-    on the Colab probe 2026-10-22; matches the Unsloth guide's pattern).
-    """
-    return getattr(tokenizer, "tokenizer", tokenizer)
-
-
 def render_prompt(tokenizer, user_content: str, cfg: ModelConfig) -> str:
-    """Apply the Gemma 4 thinking chat template; strip the duplicated BOS."""
-    tok = _text_tokenizer(tokenizer)
-    text = tok.apply_chat_template(
-        [{"role": "user", "content": user_content}],
-        tokenize=False,
-        add_generation_prompt=True,
-        enable_thinking=cfg.enable_thinking,
+    """Render the Gemma 4 thinking chat template, frozen byte-for-byte.
+
+    The exact string below is what google's processor produced for a
+    text-only conversation on the Colab probe (2026-10-22) before its
+    multimodal routing rejected the call; Unsloth's get_chat_template
+    patching re-routes even the inner tokenizer, so the format is built
+    directly and asserted by tests/test_extraction.py.
+    """
+    if cfg.enable_thinking:
+        system = "<|turn>system\n<|think|>\n<turn|>\n"
+        generation_prefix = "<|turn>model\n<|channel>thought\n<channel|>\n"
+    else:
+        system = ""
+        generation_prefix = "<|turn>model\n"
+    return (
+        f"{system}<|turn>user\n{user_content}<turn|>\n{generation_prefix}"
     )
-    if cfg.strip_bos and text.startswith("<bos>"):
-        text = text[len("<bos>"):]
-    return text
 
 
 @dataclass

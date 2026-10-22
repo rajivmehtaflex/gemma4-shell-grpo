@@ -53,3 +53,26 @@ def test_sh_and_shell_fences_accepted():
 
 def test_whitespace_only_block_rejected():
     assert not extract_script("```bash\n   \n\t\n```").ok
+
+
+def test_gemma4_prompt_template_frozen():
+    """The rendered prompt must match the processor's observed output exactly."""
+    from shell_grpo.generate import ModelConfig, render_prompt
+
+    cfg = ModelConfig(
+        deployment_alias="gemma4:e4b", repo_id="r", revision="v", quantization="q",
+        chat_template="gemma-4-thinking", enable_thinking=True, max_seq_length=2048,
+        max_new_tokens=512, temperature=1.0, top_p=0.95, top_k=64,
+    )
+    rendered = render_prompt(object(), "Count the files.", cfg)
+    assert rendered == (
+        "<|turn>system\n<|think|>\n<turn|>\n"
+        "<|turn>user\nCount the files.<turn|>\n"
+        "<|turn>model\n<|channel>thought\n<channel|>\n"
+    )
+    cfg2 = ModelConfig(
+        deployment_alias="gemma4:e4b", repo_id="r", revision="v", quantization="q",
+        chat_template="gemma-4-thinking", enable_thinking=False, max_seq_length=2048,
+        max_new_tokens=512, temperature=1.0, top_p=0.95, top_k=64,
+    )
+    assert render_prompt(object(), "x", cfg2) == "<|turn>user\nx<turn|>\n<|turn>model\n"
