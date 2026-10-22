@@ -51,6 +51,7 @@ class Task:
     alternate: str
     wrongs: list[WrongScript]
     notes: str = ""
+    pool: str = "development_pool"  # development_pool | held_out_test
     provenance_extra: dict = field(default_factory=dict)
     support_files_hint: dict = field(default_factory=dict)
 
@@ -63,7 +64,7 @@ class Task:
     def weights(self) -> dict[str, float]:
         return {f.fixture_id: f.weight for f in self.fixtures}
 
-    def record(self, split: str = "development_pool") -> TaskRecord:
+    def record(self, split: str | None = None) -> TaskRecord:
         provenance = {
             "source": "authored",
             "rationale": self.notes,
@@ -78,7 +79,7 @@ class Task:
             fixture_id=f"{self.task_id}-fixtures-v1",
             verifier_id=f"{self.task_id}-verifier-v1",
             invocation=self.invocation,
-            split=split,
+            split=split or self.pool,
             provenance=provenance,
             fixtures_declared=[f.fixture_record() for f in self.fixtures],
         )

@@ -1,0 +1,32 @@
+# Dataset release configuration (Phase 3, authored-only path).
+schema_version: "1.0.0"
+
+release:
+  id: "bank-v1"
+  seed: 20261022
+  source: "authored-only"     # reports/source-preflight.md: Pi yield 0/5
+
+splits:
+  target_proportions: [60, 20, 20]   # aspirational; components are NEVER split
+  rule: "connected-component-whole"  # splits.py is the assignment source of truth
+  notes: >
+    Diagnostics and their derivatives are development pool only (DESIGN.md).
+    Held-out test families T1-T6 were authored with solution patterns distinct
+    from every development family. Actual per-split counts are reported in the
+    dataset audit rather than forced to the target.
+
+regression_subset:
+  # Locked known-good shell checks run in every policy comparison.
+  # PLAN wording: "from baseline successes" — the baseline recorded ZERO
+  # full-task successes, so the subset degrades to the grader's
+  # reference/alternate known-goods on the two tasks where the baseline
+  # earned partial credit, plus their fixture-level baseline successes.
+  tasks: ["D01", "D05"]
+  scripts: ["reference.sh", "alternate.sh"]
+  baseline_fixture_successes:
+    D01: ["d01-empty", "d01-decoys"]     # baseline samples #1-#3
+    D05: ["d05-main", "d05-tricky", "d05-dashname"]  # baseline sample #3
+  note: >
+    Recorded deviation: no full-task baseline success existed to lock; the
+    fixture-level successes above are the closest honest analogue and the
+    reference/alternate known-goods are the regression canary itself.

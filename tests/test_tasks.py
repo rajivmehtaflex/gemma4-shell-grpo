@@ -15,11 +15,14 @@ EXPECTED_TASKS = [
     "D01", "D02", "D03", "D04", "D05",
     "S01", "S02", "S03", "S04", "S05",
     "S06", "S07", "S08", "S09", "S10",
+    "T1a", "T1b", "T2a", "T2b", "T3a",
+    "T3b", "T4a", "T4b", "T5a", "T5b",
+    "T6a", "T6b",
     "V01", "V02", "V03", "V04", "V05",
 ]
 
 
-def test_twenty_tasks_registered():
+def test_expected_tasks_registered():
     assert [t.task_id for t in all_tasks()] == EXPECTED_TASKS
 
 
@@ -69,9 +72,13 @@ def test_unique_fixture_ids_across_tasks():
 def test_task_records_validate():
     for task in all_tasks():
         record = task.record()
-        assert record.split == "development_pool"
+        expected_split = "held_out_test" if task.task_id.startswith("T") else "development_pool"
+        assert record.split == expected_split, task.task_id
         assert record.provenance["source"] == "authored"
         assert len(record.fixtures_declared) == len(task.fixtures)
+    held_out_families = {t.family_id for t in all_tasks() if t.task_id.startswith("T")}
+    dev_families = {t.family_id for t in all_tasks() if not t.task_id.startswith("T")}
+    assert not (held_out_families & dev_families), "family leakage between pools"
 
 
 def test_every_declared_script_exists_and_passes_bash_n():
