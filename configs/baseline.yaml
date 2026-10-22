@@ -10,8 +10,6 @@ baseline:
   samples_per_task: 4          # fixed inference budget; seeds averaged within task
   max_new_tokens: 1024         # thought channel consumed 512 whole in the probe
   group_seed_base: 20261022
-  support_files:
-    S07: ["filter_csv.py"]
   extraction: "exactly one fenced bash block in the final response"
   grading:
     runner_config: "configs/runner.yaml"
