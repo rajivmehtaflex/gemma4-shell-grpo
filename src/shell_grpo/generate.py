@@ -71,6 +71,19 @@ def resolve_revision(repo_id: str, token: str | None = None) -> dict:
     return {"repo_id": repo_id, "resolved_commit": commit, "architectures": cfg.get("architectures")}
 
 
+def _mirror_token_attrs(processor):
+    """TRL and generate() expect pad/eos attributes the multimodal processor
+    does not expose; mirror them from the inner text tokenizer (probe finding
+    2026-10-22)."""
+    inner = getattr(processor, "tokenizer", processor)
+    for attr in ("pad_token_id", "eos_token_id", "bos_token_id",
+                 "pad_token", "eos_token", "bos_token", "padding_side"):
+        if not hasattr(processor, attr) and hasattr(inner, attr):
+            setattr(processor, attr, getattr(inner, attr))
+    if getattr(processor, "pad_token_id", None) is None:
+        processor.pad_token_id = getattr(processor, "eos_token_id", None)
+    return processor
+
 def load_model(cfg: ModelConfig):
     """Conservative loader: Unsloth FastModel, 4-bit QLoRA base, no vLLM."""
     from unsloth import FastModel
@@ -82,7 +95,7 @@ def load_model(cfg: ModelConfig):
         full_finetuning=False,
         fast_inference=cfg.fast_inference,  # must stay False for Gemma 4 RL
     )
-    return model, tokenizer
+    return model, _mirror_token_attrs(tokenizer)
 
 
 def render_prompt(tokenizer, user_content: str, cfg: ModelConfig) -> str:

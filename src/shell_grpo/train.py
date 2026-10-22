@@ -76,6 +76,9 @@ def load_policy_for_training(model_cfg_path: Path, train_limits: TrainLimits):
         fast_inference=False,  # Gemma 4 RL is not vLLM-supported; conservative path
     )
     tokenizer = get_chat_template(tokenizer, chat_template=cfg_raw["template"]["chat_template"])
+    from .generate import _mirror_token_attrs
+
+    tokenizer = _mirror_token_attrs(tokenizer)
     lora = cfg_raw["grpo"]["lora"]
     model = FastModel.get_peft_model(
         model,
