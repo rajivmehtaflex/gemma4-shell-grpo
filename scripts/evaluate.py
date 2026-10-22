@@ -24,7 +24,7 @@ def main() -> int:
     from shell_grpo.evaluate import evaluate_completion, summarize_pass_rate
     from shell_grpo.generate import ModelConfig, generate_one, load_model
     from shell_grpo.manifests import RunManifest, config_hashes, git_head
-    from shell_grpo.runner import RestrictedRunner, RunnerConfig
+    from shell_grpo.runner import make_runner
     from shell_grpo.tasks import all_tasks, get_task
 
     parser = argparse.ArgumentParser()
@@ -40,6 +40,8 @@ def main() -> int:
     model_cfg = ModelConfig.load(args.model_config)
     if args.revision:
         model_cfg.revision = args.revision
+    if baseline.get("max_new_tokens"):
+        model_cfg.max_new_tokens = int(baseline["max_new_tokens"])
     samples = args.samples or int(baseline["samples_per_task"])
     seed_base = int(baseline["group_seed_base"])
 
@@ -47,7 +49,7 @@ def main() -> int:
     (out / "records").mkdir(parents=True, exist_ok=True)
     raw_dir = out / "raw-completions"
 
-    runner = RestrictedRunner(RunnerConfig.load(REPO / baseline["grading"]["runner_config"]))
+    runner = make_runner(REPO / baseline["grading"]["runner_config"])
     model, tokenizer = load_model(model_cfg)
 
     wanted = args.tasks.split(",") if args.tasks else [t.task_id for t in all_tasks()]
@@ -57,12 +59,11 @@ def main() -> int:
         phase=2,
         parent_run=None,
         git_head=git_head(REPO),
-        config_files=config_hashes([args.model_config, args.baseline_config,
-                                    REPO / baseline["grading"]["runner_config"]]),
+        config_files=config_hashes([args.model_config, args.baseline_config]),
         model={"repo_id": model_cfg.repo_id, "revision": model_cfg.revision,
                "quantization": model_cfg.quantization},
         environment={},
-        image_digest=runner.image_digest,
+        image_digest=runner.image_digest,  # engine identity string on namespace hosts
         seeds={"group_seed_base": seed_base, "samples_per_task": samples},
     )
     manifest.write(out / "manifest.json")

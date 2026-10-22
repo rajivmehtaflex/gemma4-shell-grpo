@@ -6,8 +6,9 @@ schema_version: "1.0.0"
 
 baseline:
   task_source: "data/examples/diagnostics.jsonl"
-  tasks: "all20"
-  samples_per_task: 8          # fixed inference budget; seeds averaged within task
+  tasks: "D01,D02,D03,D04,D05"  # Phase 2 reduced-budget weakness report (STATE.md scope decision)
+  samples_per_task: 4          # fixed inference budget; seeds averaged within task
+  max_new_tokens: 1024         # thought channel consumed 512 whole in the probe
   group_seed_base: 20261022
   support_files:
     S07: ["filter_csv.py"]
