@@ -105,7 +105,9 @@ register(Task(
         WrongScript("wrong-noop.sh", "zero", "prints nothing: no progress on main"),
         WrongScript("wrong-empty.sh", "zero", "empty file (invalid_script)"),
         WrongScript("wrong-keeps-dupes.sh", "zero", "plain sort: duplicates remain, main wrong"),
-        WrongScript("wrong-hardcode.sh", "zero", "hardcoded main output: fails the other fixtures"),
+        WrongScript("wrong-hardcode.sh", "partial",
+                    "hardcoded main output: passes main and error fixtures, "
+                    "fails the distinct-data fixtures"),
     ],
     pool="held_out_test", provenance_extra=dict(HOLDOUT_PROVENANCE, variant="sorted-unique"),
 ))
@@ -166,7 +168,10 @@ def _t2a_cases():
                     lambda root, rng: _t2_file(root, rng, b""),
                     lambda ctx: score_simple(ctx, b"")),
         FixtureCase("t2a-three-fields", 0.15, False,
-                    lambda root, rng: _t2_file(root, rng, b"a\tb\tc\n"),
+                    lambda root, rng: (
+                        put(root, "input.tsv", b"a\tb\tc\n"),
+                        _err(["input.tsv"]),
+                    )[1],
                     lambda ctx: score_simple(ctx, None, expects_failure=True, expected_exit=2)),
         FixtureCase("t2a-noargs", 0.15, False, lambda root, rng: _err([])),
         FixtureCase("t2a-missing", 0.15, False, lambda root, rng: _err(["input.tsv"])),
@@ -190,8 +195,9 @@ register(Task(
     wrongs=[
         WrongScript("wrong-noop.sh", "zero", "prints nothing: no progress on main"),
         WrongScript("wrong-empty.sh", "zero", "empty file (invalid_script)"),
-        WrongScript("wrong-cut-novalidate.sh", "zero",
-                    "cut -f2 without validation: prints through malformed rows"),
+        WrongScript("wrong-cut-novalidate.sh", "partial",
+                    "cut -f2 without validation: solves main, prints through "
+                    "malformed rows"),
         WrongScript("wrong-field1.sh", "zero", "prints the first field instead"),
     ],
     pool="held_out_test", provenance_extra=dict(HOLDOUT_PROVENANCE, variant="field2"),
@@ -218,7 +224,10 @@ register(Task(
                     lambda root, rng: _t2_file(root, rng, b""),
                     lambda ctx: score_simple(ctx, b"")),
         FixtureCase("t2b-one-field", 0.15, False,
-                    lambda root, rng: _t2_file(root, rng, b"only\n"),
+                    lambda root, rng: (
+                        put(root, "input.tsv", b"only\n"),
+                        _err(["input.tsv"]),
+                    )[1],
                     lambda ctx: score_simple(ctx, None, expects_failure=True, expected_exit=2)),
         FixtureCase("t2b-noargs", 0.15, False, lambda root, rng: _err([])),
         FixtureCase("t2b-unreadable", 0.15, False,
@@ -256,7 +265,7 @@ def _t3_prefix_verify(ctx: VerifyContext) -> FixtureVerdict:
         CheckResult("renamed_correctly", placed == len(renamed), True,
                     f"{placed}/{len(renamed)} prefixed renames")
     )
-    survivors_ok = all(
+    survivors_ok = (
         ctx.pre.get("dir/keep.txt") is not None
         and ctx.post.get("dir/keep.txt") is not None
         and ctx.pre["dir/keep.txt"].to_dict() == ctx.post["dir/keep.txt"].to_dict()
