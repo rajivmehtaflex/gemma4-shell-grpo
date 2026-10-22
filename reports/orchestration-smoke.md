@@ -40,3 +40,17 @@ work depended on it.
 
 Colab runtime sentinel — repeats at Phase 2 activation before any model work (PLAN.md Phase 2).
 Candidate-script grading — gated on Phase 1; `pi-sessions/verify.py` remains a gated skeleton.
+
+## Colab sentinel subrun (Phase 2 activation, 2026-10-22)
+
+Colab's tested job-persistence mechanism, per the PLAN Phase 2 requirement, on runtime
+`g-check-pi-exp` (L4):
+
+| Check | Result |
+|---|---|
+| Activate runtime | Pass — `colab --auth=adc new -s g-check-pi-exp --gpu L4`; "Session READY", VM SSH up in ~1 min. `gh codespace`-style auto-start does not apply; **a stopped Colab session must be re-created** (sessions are not start/stop-resumable like Codespaces). |
+| Sentinel + job record survive disconnect/reconnect | Pass — detached `nohup` job wrote `job.json`, `sentinel.txt`, `exit.json` (~20 s work); controller disconnected and reconnected; exactly one job, files intact. |
+| Copy to controller + hash | Pass — base64 over the SSH bridge, SHA-256 `17a6787c…` recorded worker-side. |
+| `--rm`/stop behavior | Not exercised this activation (stop verified instead at closeout: `colab --auth=adc stop -s <session>` removes the runtime; `/content` and VM state are then gone — durable storage is mandatory before relying on any VM-resident artifact). |
+| Single-session limit | Confirmed live: an unclean bridge disconnect holds the SSH slot ~1 minute (HTTP 429 until the server-side session expires); retry after ~60 s. |
+| Transfer channel | `ssh colab-agent` ProxyCommand bridge (managed aliases rebuilt 2026-10-22 — the September 2026 LaunchAgent/port-forward chain no longer exists on this Mac; the CLI bridge needs nothing permanent). Multi-word remote commands over `gh codespace ssh`-style quoting do not apply here: scripts travel base64-encoded on stdin (`base64 -d \| bash`). |

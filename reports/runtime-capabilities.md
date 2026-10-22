@@ -38,11 +38,33 @@ with the verifier living outside every candidate mount. Rootless namespaces (`un
 are a validated fallback. macOS development may use emulation per the plan; parity fixtures run
 if the image target changes.
 
-## GPU host note
+## GPU host note — probed 2026-10-22 (Phase 2 activation)
 
-Colab runtime capabilities are **not yet probed** — per PLAN.md this is verified when Phase 2
-activates the GPU runtime, using the same sentinel and the same grading-contract checks before
-any model work.
+Colab L4 runtime `g-check-pi-exp` (Ubuntu 24.04.4, x86_64, 12 vCPU, 52 GB RAM, NVIDIA L4
+23034 MiB, driver 580.82.07, Python 3.13, uv present, 71 GB free):
+
+| Requirement | Result | Evidence |
+|---|---|---|
+| Docker | **Absent** (expected on Colab) | `which docker` empty |
+| Unprivileged user namespaces | **Pass** | `unshare --user --map-users ...` works; direct `/proc/<pid>/uid_map` write from a real-root parent (util-linux `--map-users` drops the caller from its own map — recorded) |
+| No network for candidate | **Pass** | `--net` namespace: 0 routes, `connect` → unreachable |
+| Unprivileged candidate execution | **Pass** | child setuid to inner 65534 = outer uid 165533 (file ownership proves the drop); zero capabilities after the uid change |
+| Host state protection | **Pass** | `/root` 0700 denies the candidate (HF token, weights, verifier state); `env -i` scrubbed environment |
+| Resource bounds | **Pass with caveat** | `ulimit -v` + per-uid nproc + host timeout with process-group kill; **fork inside a PID namespace fails with ENOMEM on this kernel**, so the PID namespace is omitted — process bounds come from the per-uid nproc limit instead (host processes' cmdlines under /proc remain world-readable to the candidate: recorded caveat, no secrets in argv) |
+| End-to-end grading | **Pass** | the full `grade_script` pipeline (namespace engine) on this host: D01 reference 1.0 on all fixtures, D05 starter rejected with the exact expected critical, S07 reference 1.0 with support file |
+
+Engine decision for GPU hosts: **`NamespaceRunner`** (user+net namespace engine in
+`src/shell_grpo/ns_exec.py`), selected automatically by `make_runner()` when Docker is
+absent. The Docker engine remains authoritative on Codespaces.
+
+## GPU model-stack probe (same activation)
+
+Unsloth 2026.10.7 + transformers 5.17.0 + TRL 1.15.0 + torch 2.14.1+cu130 on the L4:
+E4B loads via the conservative path (`fast_inference=False`), fresh r=16 LoRA shows finite
+loss/gradients, a tiny GRPO step runs, adapter save/reload is output-identical, generation
+produces the documented `<|channel>thought` stream. Details and the exact Gemma 4 processor
+gotchas are in `runs/P2-20261022TActiv/p2-compat-evidence.json` (hash-verified copy) and
+`reports/phase2-*.md`. Measured generation speed: ~0.2 s/token (~103 s for 512 tokens).
 
 ## Modal fallback
 

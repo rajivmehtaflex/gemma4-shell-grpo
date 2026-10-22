@@ -8,7 +8,7 @@ model:
   deployment_alias: "gemma4:e4b"
   training_checkpoint:
     repo_id: "unsloth/gemma-4-E4B-it"        # 16-bit mirror of google/gemma-4-E4B-it
-    revision: "TO_PIN_AT_COMPATIBILITY"      # resolved commit frozen by the probe
+    revision: "4e22d7e59e078e63a14f351efdc5232ed366b621"  # resolved by the probe 2026-10-22
     upstream_lineage: "google/gemma-4-E4B-it"
   alt_repos:
     - "google/gemma-4-E4B-it"
