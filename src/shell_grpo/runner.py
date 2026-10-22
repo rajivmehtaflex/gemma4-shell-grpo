@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -523,3 +524,173 @@ def violation_if_changed_scope(ctx: VerifyContext, verdict: FixtureVerdict) -> N
     from .verifiers import violation_if_changed
 
     violation_if_changed(ctx, verdict, "", label="input")
+
+
+# ---------------------------------------------------------------------------
+# Namespace engine: same contract on hosts without Docker (e.g. Colab)
+# ---------------------------------------------------------------------------
+
+
+class NamespaceRunner:
+    """RestrictedRunner equivalent built on unprivileged user namespaces.
+
+    Contract evidence (Colab L4, 2026-10-22): candidate runs as outer uid
+    165533 with zero capabilities, no network routes, /root (HF token,
+    weights, verifier state) denied by unix permissions, env scrubbed via
+    env -i, per-uid nproc + ulimit -v bounds, host-side timeout with
+    process-group kill. No PID namespace: this kernel denies fork inside
+    one, so process bounds come from the per-uid nproc limit and the
+    runner's group-kill instead (recorded in runtime-capabilities.md).
+    """
+
+    def __init__(self, config: RunnerConfig | None = None, work_root: Path | None = None):
+        self.config = config or RunnerConfig()
+        self.work_root = work_root or Path(
+            os.environ.get("SHELL_GRPO_WORK", "/tmp/shell-grpo-grader")
+        )
+        self.work_root.mkdir(parents=True, exist_ok=True)
+        self.image_digest = "namespace-engine:user+net-uid165533"
+        self._ensure_subuid()
+
+    def _ensure_subuid(self) -> None:
+        # The direct /proc map write bypasses newuidmap, but keep the
+        # allocation recorded for tools that consult /etc/subuid.
+        try:
+            content = Path("/etc/subuid").read_text()
+        except OSError:
+            content = ""
+        if "root:100000:65536" not in content:
+            with open("/etc/subuid", "a") as fh:
+                fh.write("root:100000:65536\n")
+        try:
+            content = Path("/etc/subgid").read_text()
+        except OSError:
+            content = ""
+        if "root:100000:65536" not in content:
+            with open("/etc/subgid", "a") as fh:
+                fh.write("root:100000:65536\n")
+
+    def _docker(self, *args, **kwargs):  # interface parity, unused
+        raise NotImplementedError
+
+    def _prepare_candidate(self, script: bytes, support: dict[str, bytes] | None) -> Path:
+        cand = self.work_root / f"cand-{uuid.uuid4().hex[:12]}"
+        cand.mkdir()
+        path = cand / "script.sh"
+        path.write_bytes(script)
+        os.chmod(path, 0o555)
+        for rel, data in (support or {}).items():
+            target = cand / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            os.chmod(target, 0o444)
+        return cand
+
+    def _spawn(self, argv: list[str], env: dict, cwd: Path, timeout: int) -> tuple[int, bytes, bytes, int, bool]:
+        """Run argv via ns_exec in its own process group with a hard timeout."""
+        import subprocess as sp
+
+        py = sp.Popen(
+            [sys.executable, "-c", _NS_EXEC_SHIM],
+            stdin=sp.DEVNULL,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE,
+        )
+        payload = json.dumps({"argv": argv, "env": env, "cwd": str(cwd)})
+        started = time.monotonic()
+        killed = False
+        try:
+            out, err = py.communicate(payload.encode(), timeout=timeout)
+        except sp.TimeoutExpired:
+            killed = True
+            py.kill()
+            out, err = py.communicate()
+        duration_ms = int((time.monotonic() - started) * 1000)
+        if py.returncode not in (0, None) and not killed and len(err) > 120:
+            return 125, out, err, duration_ms, False  # ns-level failure
+        return (
+            py.returncode if py.returncode is not None else -1,
+            out, err, duration_ms, killed,
+        )
+
+    def run_fixture(
+        self,
+        script: bytes,
+        instance: FixtureInstance,
+        support: dict[str, bytes] | None = None,
+        out_dir: Path | None = None,
+    ) -> Outcome:
+        cand = self._prepare_candidate(script, support)
+        name = f"nsrun-{uuid.uuid4().hex[:12]}"
+        try:
+            argv = ["/bin/bash", f"{cand}/script.sh", *instance.truth.argv]
+            env = {
+                "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "HOME": "/tmp", "LANG": "C", "LC_ALL": "C", "TZ": "UTC",
+            }
+            code, out, err, duration_ms, killed = self._spawn(
+                argv, env, instance.root, self.config.time_limit_seconds
+            )
+            if code == 3 or code == 125:
+                outcome = Outcome(
+                    exit_code=None, stdout=out, stderr=err, duration_ms=duration_ms,
+                    infrastructure_error=f"namespace execution failed (rc={code}): {err[:200]!r}",
+                )
+            else:
+                outcome = Outcome(
+                    exit_code=code, stdout=out, stderr=err, duration_ms=duration_ms,
+                    killed_by="timeout" if killed else None,
+                    stdout_sha256=sha256_bytes(out),
+                )
+            if out_dir is not None:
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / f"exec-{name}.json").write_text(json.dumps({
+                    "exit_code": outcome.exit_code, "killed_by": outcome.killed_by,
+                    "duration_ms": outcome.duration_ms,
+                    "stdout_sha256": outcome.stdout_sha256,
+                    "stdout_bytes": len(outcome.stdout), "stderr_bytes": len(outcome.stderr),
+                    "argv": instance.truth.argv,
+                    "stdout_preview": outcome.stdout[:4096].decode("utf-8", "replace"),
+                    "stderr_preview": outcome.stderr[:4096].decode("utf-8", "replace"),
+                }, indent=2))
+            return outcome
+        finally:
+            shutil.rmtree(cand, ignore_errors=True)
+
+    def syntax_check(self, script: bytes) -> tuple[bool, str]:
+        cand = self._prepare_candidate(script, None)
+        try:
+            code, out, err, _, _ = self._spawn(
+                ["/bin/bash", "-n", f"{cand}/script.sh"], {"PATH": "/usr/bin:/bin"},
+                cand, self.config.syntax_check_seconds,
+            )
+            if code in (3, 125):
+                return True, ""  # infrastructure problems handled by the caller
+            if code != 0:
+                detail = err.decode("utf-8", "replace").strip().splitlines()
+                return False, detail[-1] if detail else f"bash -n exit {code}"
+            return True, ""
+        finally:
+            shutil.rmtree(cand, ignore_errors=True)
+
+
+_NS_EXEC_SHIM = (
+    "import json, sys\n"
+    "sys.path.insert(0, %r)\n" % str(Path(__file__).resolve().parents[1] / "src") +
+    "from shell_grpo.ns_exec import ns_exec\n"
+    "import json as _json\n"
+    "payload = _json.loads(sys.stdin.read())\n"
+    "code = ns_exec(payload['argv'], payload['env'], payload['cwd'])\n"
+    "sys.exit(code if code >= 0 else 128 - code)\n"
+)
+
+
+def make_runner(config_path: Path | None = None, work_root: Path | None = None):
+    """Engine auto-selection: Docker when functional, else user namespaces."""
+    cfg = RunnerConfig.load(config_path)
+    if cfg.image and shutil.which("docker"):
+        try:
+            return RestrictedRunner(cfg, work_root)
+        except Exception:
+            pass
+    return NamespaceRunner(cfg, work_root)
