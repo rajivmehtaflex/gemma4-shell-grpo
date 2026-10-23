@@ -1,0 +1,57 @@
+# Phase 4 screening configuration: difficulty screening of the TRAIN pool
+# with the untouched policy. This file is the FROZEN threshold record — every
+# threshold below was committed before the first screening generation
+# (PLAN Phase 4: "Freeze screening thresholds before sampling").
+#
+# Scope rule (PLAN): only training tasks are screened; final-test tasks
+# (held_out_test pool) and validation tasks are never screened here. The
+# screened list is the full train split of release bank-v1 — no cherry-picking.
+schema_version: "1.0.0"
+
+screening:
+  pool: "train"                  # splits.py train split (development_pool tasks only)
+  tasks:                         # frozen explicit list (11 tasks, 8 families)
+    - D02                        # copy-recursive
+    - D03                        # text-aggregate
+    - D04                        # repair-copy
+    - S02                        # copy-recursive
+    - S03                        # move-select
+    - S04                        # file-list-nul
+    - S05                        # text-aggregate
+    - S08                        # repair-copy
+    - V01                        # file-select-count
+    - V03                        # repair-listing
+    - V04                        # text-slice
+  candidates_per_task: 8         # PLAN: start with eight candidates per training prompt
+  group_seeds:
+    screening_1: 410001          # independent of the Phase 2 baseline seed base (20261022)
+    screening_2: 410002          # confirmation seed: fresh sample, independent fixtures
+  candidates_share_group_seed: true   # PLAN: candidates share fixture seeds, fresh state
+  max_new_tokens: 2048           # Phase 2 lesson: >=2048 or truncation dominates
+  decoding: "configs/model.yaml" # temp 1.0 / top_p 0.95 / top_k 64, thinking enabled
+  grading:
+    runner_config: "configs/runner.yaml"   # namespace engine on the GPU host
+  report: "reports/screening.md"
+  sync:
+    hf_repo: "rajivmehtapy/gemma4-shell-grpo-artifacts"
+    interval_seconds: 60
+    include_raw_completions: true  # Phase 2 queued debt adopted: raws sync like records
+
+  # ---- FROZEN THRESHOLDS (committed before sampling) -----------------------
+  thresholds:
+    # A useful group shows at least two different functional rewards (PLAN).
+    useful_group: ">=2 distinct non-null task_score values among the group's candidates"
+    # Readiness heuristic: >=25% of the 11 screened tasks produce useful groups
+    # in BOTH screenings => >= ceil(0.25*11) = 3 tasks.
+    min_useful_proportion: 0.25
+    min_useful_tasks_both_screenings: 3
+    # Independent task families among the tasks useful in both screenings.
+    min_families: 5
+    # Category coverage, operationalized: PLAN says "coverage of each retained
+    # task category"; the implemented schema has no category field, so the
+    # audit unit is the task FAMILY. Every train-pool family must be reported
+    # as useful / easy-covered (full passes, retained) / hard-reserve (zero
+    # progress, kept for reserve) — no family silently dropped.
+    family_coverage: "each of the 8 train-pool families appears in the report as useful, easy-covered, or hard-reserve"
+  confirmation_rule: "every task whose screening-1 group is useful (>=2 distinct rewards) is resampled under screening_2 with fresh generations"
+  all_equal_rule: "groups with a single distinct reward are listed explicitly in the report and inspected, never assumed fixable by training"
