@@ -622,6 +622,14 @@ class NamespaceRunner:
     ) -> Outcome:
         cand = self._prepare_candidate(script, support)
         name = f"nsrun-{uuid.uuid4().hex[:12]}"
+        # The builder created the instance tree as real root; the candidate
+        # runs as inner uid 65534. Hand the tree to the candidate uid with
+        # modes preserved, matching the Docker engine where the candidate uid
+        # effectively owned the mounted instance (grader-infra fix 2026-10-23:
+        # D02 dst/ writes failed with EACCES after builder-created dirs).
+        # Chown does not touch modes, so 0o000 fixtures stay unreadable.
+        for p in [instance.root, *instance.root.rglob("*")]:
+            os.chown(p, 65534, 65534, follow_symlinks=False)
         try:
             argv = ["/bin/bash", f"{cand}/script.sh", *instance.truth.argv]
             env = {
