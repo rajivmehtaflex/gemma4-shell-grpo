@@ -35,3 +35,16 @@ Date: 2026-10-23 · Controller: macOS · Toolchain: `runpodctl 3.0.1-551d6a4` (b
 ## Verdict and next step
 
 The toolchain and lifecycle are clear. The only unproven leg — interactive SSH — is blocked on the CPU pod class at the platform level, not by our setup. Recommended closure (pending user approval): a 10–15 minute **GPU** pod smoke (~$0.10–0.15 at the cheapest available card) to prove the SSH leg on the documented path, since the actual future workloads (Phase 4+) are GPU pods anyway. No ceiling impact: total RunPod spend to date $0.023 against the $10/month envelope.
+
+## Addendum — GPU pod smoke (2026-10-23, later; user-approved)
+
+Closed the SSH leg on the documented path: A40 48GB Secure @EU-SE-1 (High stock, $0.59/hr), `runpod/pytorch:1.0.3-cu1281` image, `--ports 22/tcp`, no `--wait` (manual polling — avoids the long-blocking create that invites cancellations).
+
+- Container ready ~1 min after create (logs: "Pod is ready to use"); `ssh info` endpoint `194.68.245.4:22106`; **TCP opened on first probe** (unlike the CPU pod, the proxy attaches for GPU pods).
+- SSH with the registered `~/.ssh/id_ed25519`: **SSH_OK**; probes: `NVIDIA A40, 46068 MiB, driver 595.91.07`, 96 vCPU / 503GB host RAM, 15GB container disk, image torch `2.9.1+cu128` with `cuda_available=True`.
+- **`~/.ssh/config` alias flow demonstrated**: wrote a `Host runpod-smoke` block from the `ssh info` endpoint and executed commands through it (`ssh runpod-smoke 'hostname; nvidia-smi …'` → `b91b6e78da0e`, `NVIDIA A40`); alias removed at teardown (endpoint is pod-specific — recreate per pod, exactly like the `colab-agent` pattern).
+- Teardown: pod removed, `pod list` empty, spend/hr 0. GPU smoke spend **$0.073** (~7.4 min); **total RunPod spend to date $0.099**.
+
+## Final verdict
+
+Allocate → SSH → operate → teardown is **fully proven on the GPU pod class** we would use for real work: `runpodctl pod create … --ports 22/tcp` → `runpodctl ssh info` → alias in `~/.ssh/config` → arbitrary command execution → `pod remove` + verify-empty. CPU pods remain unusable for SSH (platform attaches no proxy — platform limitation, documented above). RunPod is ready as the GPU-phase provider from the toolchain side; the provider-routing decision (RunPod primary / Colab fallback) can be recorded whenever Phase 4 resumes on it.
