@@ -606,8 +606,6 @@ class NamespaceRunner:
             py.kill()
             out, err = py.communicate()
         duration_ms = int((time.monotonic() - started) * 1000)
-        if py.returncode not in (0, None) and not killed and len(err) > 120:
-            return 125, out, err, duration_ms, False  # ns-level failure
         return (
             py.returncode if py.returncode is not None else -1,
             out, err, duration_ms, killed,
@@ -640,7 +638,12 @@ class NamespaceRunner:
             code, out, err, duration_ms, killed = self._spawn(
                 argv, env, instance.root, self.config.time_limit_seconds
             )
-            if code == 3 or code == 125:
+            # The shim exits 125 only for engine-level failures and stamps
+            # them with an explicit marker; a candidate's own exit code
+            # (including 3 or 125) is a scored model outcome, never infra
+            # (grader repair 2026-10-23: long-stderr candidates were being
+            # infra-classified and null-scored).
+            if code == 125 and b"NS_EXEC_ENGINE_FAILURE" in err:
                 outcome = Outcome(
                     exit_code=None, stdout=out, stderr=err, duration_ms=duration_ms,
                     infrastructure_error=f"namespace execution failed (rc={code}): {err[:200]!r}",
@@ -673,7 +676,7 @@ class NamespaceRunner:
                 ["/bin/bash", "-n", f"{cand}/script.sh"], {"PATH": "/usr/bin:/bin"},
                 cand, self.config.syntax_check_seconds,
             )
-            if code in (3, 125):
+            if code == 125 and b"NS_EXEC_ENGINE_FAILURE" in err:
                 return True, ""  # infrastructure problems handled by the caller
             if code != 0:
                 detail = err.decode("utf-8", "replace").strip().splitlines()
@@ -686,11 +689,17 @@ class NamespaceRunner:
 _NS_EXEC_SHIM = (
     "import json, sys\n"
     "sys.path.insert(0, %r)\n" % str(Path(__file__).resolve().parents[1] / "src") +
-    "from shell_grpo.ns_exec import ns_exec\n"
-    "import json as _json\n"
-    "payload = _json.loads(sys.stdin.read())\n"
-    "code = ns_exec(payload['argv'], payload['env'], payload['cwd'])\n"
-    "sys.exit(code if code >= 0 else 128 - code)\n"
+    "try:\n"
+    "    from shell_grpo.ns_exec import ns_exec\n"
+    "    import json as _json\n"
+    "    payload = _json.loads(sys.stdin.read())\n"
+    "    code = ns_exec(payload['argv'], payload['env'], payload['cwd'])\n"
+    "    sys.exit(code if code >= 0 else 128 - code)\n"
+    "except BaseException:\n"
+    "    import traceback\n"
+    "    sys.stderr.write('NS_EXEC_ENGINE_FAILURE\\n')\n"
+    "    traceback.print_exc()\n"
+    "    sys.exit(125)\n"
 )
 
 
