@@ -55,11 +55,20 @@ def ns_exec(argv: list[str], env: dict[str, str], cwd: str) -> int:
         os.write(w1, _READY)
         os.close(w1)
         os.read(r2, 1)  # EOF once the parent has written the maps
-        os.setgroups([])
-        os.setgid(INNER_UNPRIVILEGED)
-        os.setuid(INNER_UNPRIVILEGED)
-        os.chdir(cwd)
-        os.execve(argv[0], argv, env)
+        try:
+            os.setgroups([])
+            os.setgid(INNER_UNPRIVILEGED)
+            os.setuid(INNER_UNPRIVILEGED)
+            os.chdir(cwd)
+            os.execve(argv[0], argv, env)
+        except BaseException:
+            # Post-handshake engine failure (drop-privs/chdir/exec): stamp it so
+            # the runner classifies this as infrastructure, not a model outcome.
+            import sys, traceback
+
+            sys.stderr.write("NS_EXEC_ENGINE_FAILURE\n")
+            traceback.print_exc()
+            os._exit(125)
         os._exit(127)
 
     os.close(w1)

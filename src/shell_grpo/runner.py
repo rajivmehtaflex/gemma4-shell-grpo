@@ -695,7 +695,7 @@ _NS_EXEC_SHIM = (
     "    payload = _json.loads(sys.stdin.read())\n"
     "    code = ns_exec(payload['argv'], payload['env'], payload['cwd'])\n"
     "    sys.exit(code if code >= 0 else 128 - code)\n"
-    "except BaseException:\n"
+    "except Exception:\n"
     "    import traceback\n"
     "    sys.stderr.write('NS_EXEC_ENGINE_FAILURE\\n')\n"
     "    traceback.print_exc()\n"
