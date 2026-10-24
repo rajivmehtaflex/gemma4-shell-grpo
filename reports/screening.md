@@ -47,3 +47,16 @@ Recommendation: option 2 is cheap and preserves the predeclared gate as written;
 - Providers/cost: Modal L4 ~$9 (credit), RunPod A40 ~$2 (cash), Codespace grading free; total cash ~$2 vs the $10/month ceiling. All machines torn down and verified empty (Modal app stopped, RunPod `pod list` empty, spend/hr 0).
 - Evidence: stage summaries + per-candidate records + raw completions in `runs/P4-20261023T1100/` (private), tarballs hash-verified (`07a9e073…` stage-2) in `artifacts/P4-20261023T1100/`, and continuously mirrored to the private HF repo (`p4-screening/` prefix).
 - New operational findings recorded: RunPod CPU-class pods get no SSH proxy; RunPod GPU pods block userns+DinD (grading must be split or run elsewhere); RunPod 50GB+ container disk required for the ~16GB checkpoint (15GB default hits ENOSPC); Modal gVisor passes the full namespace grading contract including the chown path.
+
+## Addendum — phase 5 family top-up (2026-10-24): gate now MET as written
+
+After the 4/5-family outcome above, one new train family was authored and screened under the same frozen thresholds/seeds: **W01/W02 (manifest-verify** — sha256 manifest verification/generation; hashing is a solution pattern distinct from every existing family). W01/W02 passed the Phase 1 acceptance harness on the Docker grader first (all expectations, 3 repeats deterministic), then screened: 2 tasks × 8 candidates × both seeds (32 generations on RunPod A40 via the split pipeline; grading on the Codespace Docker engine). **Both W tasks are useful in both screenings** (W01 distinct scores {0.0, 0.3, 1.0} s1 / {0.0, 1.0} s2; W02 {0.5, 1.0} in both).
+
+Merged 13-task gate (config `configs/screening-v2.yaml`, analysis in `runs/P5-topup/analysis-13task.json`):
+
+- **Useful in both screenings: 6/13 = 46.2% (≥25% — MET)**: D02, S03, S05, V01, W01, W02
+- **Independent families: 5/5 (MET)**: copy-recursive, move-select, text-aggregate, copy-flat, manifest-verify
+- Scoring coverage 1.0 across all 160 records (104 s1 / 56 s2); 0 infrastructure errors
+- Family coverage: 4 useful / 2 easy-covered (repair-copy D04+S08, text-slice V04) / 3 hard-reserve (file-list-nul S04, repair-listing V03, and D03/S02 zeros within their families)
+
+The phase 4 readiness heuristic is **satisfied as written**. Accepted training pool for the Phase 5 freeze: the 6 confirmed tasks + easy coverage (D04, V04); hard-reserve tasks stay out. S08 remains unconfirmed (useful s1, all-zero s2) and stays in easy-covered/repair-copy only as coverage. Top-up cost: ~$1 RunPod cash.
