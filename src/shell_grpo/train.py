@@ -147,7 +147,14 @@ def build_pilot_dataset(tokenizer, task_ids: list[str], steps: int, seed_base: i
     return Dataset.from_list(rows)
 
 
-class StopConditionCallback:
+try:  # transformers is GPU-host-only; the callback base provides no-op hooks
+    from transformers import TrainerCallback as _CallbackBase
+except ImportError:  # host/test environments: never registered with a Trainer
+    class _CallbackBase:
+        pass
+
+
+class StopConditionCallback(_CallbackBase):
     """Frozen grpo-pilot.yaml stop conditions, checked after every step.
 
     Halts by raising SettingWithCopyWarning-free StopTraining flag through
