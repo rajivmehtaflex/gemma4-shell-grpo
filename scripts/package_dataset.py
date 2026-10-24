@@ -65,15 +65,20 @@ def hf_upload(rel: str, local: Path) -> None:
 
 
 def hf_sha(rel: str) -> str:
-    """Digest of the remote object (lfs oid for LFS pointers, else the bytes)."""
+    """Digest of the remote object (lfs oid for LFS files, else the bytes).
+
+    The HF tree API only lists directories, so resolve the file through its
+    parent listing.
+    """
     token = hf_token()
+    parent = f"{HF_PREFIX}/{Path(rel).parent.as_posix()}" if Path(rel).parent != Path(".") else HF_PREFIX
     req = urllib.request.Request(
-        f"https://huggingface.co/api/models/{HF_REPO}/tree/main/{HF_PREFIX}/{rel}",
+        f"https://huggingface.co/api/models/{HF_REPO}/tree/main/{parent}",
         headers={"Authorization": f"Bearer {token}"},
     )
-    info = json.load(urllib.request.urlopen(req))
-    if isinstance(info, list):
-        info = info[0]
+    entries = json.load(urllib.request.urlopen(req))
+    full = f"{HF_PREFIX}/{rel}"
+    info = next(e for e in entries if e["path"] == full)
     if info.get("lfs"):
         return info["lfs"]["oid"]
     req = urllib.request.Request(hf_url(rel), headers={"Authorization": f"Bearer {token}"})

@@ -1,0 +1,377 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_id": "dataset-v1",
+  "release": "bank-v2",
+  "release_seed": 20261022,
+  "bank_sha256": "af8b5cfca4965be0dde5af8a77fad3be254f92a935287da26f0cdfd20097cbdc",
+  "task_count": 34,
+  "split_task_counts": {
+    "train": 13,
+    "validation": 9,
+    "test": 12
+  },
+  "component_count": 27,
+  "reward_version": "r1",
+  "tasks": [
+    {
+      "task_id": "D01",
+      "split": "validation",
+      "component": "comp-d01",
+      "family": "file-select-count",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "46c36df0f38a03ddd27b7784e17bd7759b0d2590532fd1adb7ba0af2c3a40936"
+    },
+    {
+      "task_id": "D02",
+      "split": "train",
+      "component": "comp-d02",
+      "family": "copy-recursive",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "f7f40a439db66967ae5ee5dbd9265cb2fb3ef58e8125dd6626066874b1046160"
+    },
+    {
+      "task_id": "D03",
+      "split": "train",
+      "component": "comp-d03",
+      "family": "text-aggregate",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "1e1695936d1a8fbd0e30458d3dfa36fa710d6c74445ec174c9be21b0fa992f9f"
+    },
+    {
+      "task_id": "D04",
+      "split": "train",
+      "component": "comp-d04",
+      "family": "repair-copy",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "06381b718842e8806a80231d7861b464ea467c2f82b69f0b3753a4fd41cb1c28"
+    },
+    {
+      "task_id": "D05",
+      "split": "validation",
+      "component": "comp-d05",
+      "family": "repair-count",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "49c0b53b8487a5104a1b37275e8f18ec615e3883c7d8f0855c8b30ef99902e85"
+    },
+    {
+      "task_id": "S01",
+      "split": "validation",
+      "component": "comp-d01",
+      "family": "file-select-count",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "7d56b33667443faf2d19fefe5cdb1f631a6d09cb4139d429f1559b87bfb05ae2"
+    },
+    {
+      "task_id": "S02",
+      "split": "train",
+      "component": "comp-d02",
+      "family": "copy-recursive",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "0aba612de7f5d0ad94e5d9f58b6a0e7e46c9545c3dad16e293f79f7f14009aec"
+    },
+    {
+      "task_id": "S03",
+      "split": "train",
+      "component": "comp-s03",
+      "family": "move-select",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "58a86fbf09566d6e2acaa0956c7469fa6816c99eca7293abe316e9fa308441f3"
+    },
+    {
+      "task_id": "S04",
+      "split": "train",
+      "component": "comp-s04",
+      "family": "file-list-nul",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "c22d4b72bc3709e3ef87acf6da26d79575b057923a3ca665a44639ef6a468f32"
+    },
+    {
+      "task_id": "S05",
+      "split": "train",
+      "component": "comp-d03",
+      "family": "text-aggregate",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "ca375e263f9f1985bb1be2f305bc0790371f20af9d4f216197ea449bd8710039"
+    },
+    {
+      "task_id": "S06",
+      "split": "validation",
+      "component": "comp-d05",
+      "family": "count-pattern",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "b7337010001948083a742bf5e5b81d9d2b5e14f91bb504749e295109ff30f5c8"
+    },
+    {
+      "task_id": "S07",
+      "split": "validation",
+      "component": "comp-s07",
+      "family": "csv-extract",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "7263f2d12e5d701e7fc2e9d80877560aa1f87b03a213ea557d815a6ca106851e"
+    },
+    {
+      "task_id": "S08",
+      "split": "train",
+      "component": "comp-d04",
+      "family": "repair-copy",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "d06ab87cbc3fa47db41c36fb8dcfd3ec56762f4821d54abeea7fd036d838ef24"
+    },
+    {
+      "task_id": "S09",
+      "split": "validation",
+      "component": "comp-s09",
+      "family": "repair-literal-search",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "5f485028619c866b975b7ff78aed832b450ad7330e016a9746bda2e8c5ef34d4"
+    },
+    {
+      "task_id": "S10",
+      "split": "validation",
+      "component": "comp-d05",
+      "family": "repair-count",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "de972ebf96e66a22d77429030734a5c407cb9ddbe199a779ae4e26650b1e7f2f"
+    },
+    {
+      "task_id": "T1a",
+      "split": "test",
+      "component": "comp-t1-sorted",
+      "family": "dedup-order",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "31cdf4504125776178efb393a8a77d709964b6e2101725af78a8e38b09497026"
+    },
+    {
+      "task_id": "T1b",
+      "split": "test",
+      "component": "comp-t1-first-seen",
+      "family": "dedup-order",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "3f1d70708f03751fa590ae9c59af729b31e212112ff4bd3e5aa5c5ba6cdcdc66"
+    },
+    {
+      "task_id": "T2a",
+      "split": "test",
+      "component": "comp-t2-field2",
+      "family": "column-projection",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "d5e15c2c735fe3dcb7699dbff0f33535af73cad88dd6e6e30246aaf907642e7c"
+    },
+    {
+      "task_id": "T2b",
+      "split": "test",
+      "component": "comp-t2-swap",
+      "family": "column-projection",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "963ef623e318c08a1d74f992d4fe6ddeaaa2c153106d02398d237f3a7eaec5ee"
+    },
+    {
+      "task_id": "T3a",
+      "split": "test",
+      "component": "comp-t3-htm-html",
+      "family": "rename-batch",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "bb16fa85cce794e4fe40e44a6df630b4dd22932e7fb4e5f1149a148dd2b148d9"
+    },
+    {
+      "task_id": "T3b",
+      "split": "test",
+      "component": "comp-t3-backup-prefix",
+      "family": "rename-batch",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "c9e31341b2792a8681a816121b45ff406fd7dd5caddb59e130ffa216c8369504"
+    },
+    {
+      "task_id": "T4a",
+      "split": "test",
+      "component": "comp-t4-delete",
+      "family": "zero-janitor",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "75bd4b612d233b24aa28867e8cbf853f88c409efa7024188e996b0d07ffe80a9"
+    },
+    {
+      "task_id": "T4b",
+      "split": "test",
+      "component": "comp-t4-count",
+      "family": "zero-janitor",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "1965ad38cf662a3703db2b2d84e43a936ce397f4c2bda4c9947fe252aae00588"
+    },
+    {
+      "task_id": "T5a",
+      "split": "test",
+      "component": "comp-t5-all-lines",
+      "family": "head-tail",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "722e6650199633d5c6562d71f84c797ea36ae9a483296f6a4b42a5655a5dac87"
+    },
+    {
+      "task_id": "T5b",
+      "split": "test",
+      "component": "comp-t5-skip-blank",
+      "family": "head-tail",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "3823a1477418ffe5f48cf65645f044cf0a1b3366afcc5a4cef0769129039f9c4"
+    },
+    {
+      "task_id": "T6a",
+      "split": "test",
+      "component": "comp-t6-all",
+      "family": "line-numbering",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "7f6381fa66e382fdcea2c692a080a911582b13b2b3d4413a03a26f9aed02912d"
+    },
+    {
+      "task_id": "T6b",
+      "split": "test",
+      "component": "comp-t6-nonblank",
+      "family": "line-numbering",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "98b835a5814ce1ce7b53af98e660af46386b0c1f3dd00aea985511f18cbb5a35"
+    },
+    {
+      "task_id": "V01",
+      "split": "train",
+      "component": "comp-v01",
+      "family": "copy-flat",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "de419e2643f0515494accbc0b2f06fe25aad29cb3eac20280d81e11c07c31c4b"
+    },
+    {
+      "task_id": "V02",
+      "split": "validation",
+      "component": "comp-v02",
+      "family": "file-select-aggregate",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "5a8a36a62c27c7ad72bd70997cc322c42d6bae621f6fdbe91e5aee8556f40da3"
+    },
+    {
+      "task_id": "V03",
+      "split": "train",
+      "component": "comp-v03",
+      "family": "repair-listing",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "68f57f01fe0e1baf8bdc9e5b3100e2f7b55e3706e7d8a59211454d58d7332e7b"
+    },
+    {
+      "task_id": "V04",
+      "split": "train",
+      "component": "comp-v04",
+      "family": "text-slice",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "f037f5ddcc912d55c43f7325c0c512e0b3b00a585f6c868801799ba79623fb34"
+    },
+    {
+      "task_id": "V05",
+      "split": "validation",
+      "component": "comp-v05",
+      "family": "file-select-argmax",
+      "pool": "development_pool",
+      "train_weight": 0.0,
+      "prompt_sha256": "98fbb214f973a963f13ee55fca4487403c43578fcd3ce87ae9ca51915ea87f4c"
+    },
+    {
+      "task_id": "W01",
+      "split": "train",
+      "component": "comp-w01",
+      "family": "manifest-verify",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "5b469d451369f446de6ac67f6a618b319c3905ea164df3548ada90d7bbfc24cc"
+    },
+    {
+      "task_id": "W02",
+      "split": "train",
+      "component": "comp-w01",
+      "family": "manifest-verify",
+      "pool": "development_pool",
+      "train_weight": 1.0,
+      "prompt_sha256": "6f7fc279e3b2aa9d3957a78915358753feeed199d80b502373e89f5c6c4bf538"
+    }
+  ],
+  "accepted_training_pool": [
+    "D02",
+    "S03",
+    "S05",
+    "V01",
+    "W01",
+    "W02",
+    "D04",
+    "V04"
+  ],
+  "excluded_reserve": [
+    "D03",
+    "S02",
+    "S04",
+    "V03"
+  ],
+  "fixture_seed_schedule": "group_seed = derive_fixture_seeds(task_id, rotation_seed=20261022+global_step); candidates share the group seed, fresh state each",
+  "verifier_bundle": {
+    "src/shell_grpo/contracts.py": "6f2a3f545e3c8ea29de778ed4c75bc0c01252150bffee2d7d6c59bb260cec22b",
+    "src/shell_grpo/verifiers.py": "7c007fd02d960a2e010f5f4da83e77e529fd80cfcabfef319a9c44bd398dd98e",
+    "src/shell_grpo/fixtures.py": "7200891e2d8f2a0f600e1e40be0983b2830c9c5f6e1672f09c976c98ef393378",
+    "src/shell_grpo/rewards.py": "dacc983f58643f11e458be506b2a867a636051349be977ad2700f1ac27e1f2e8",
+    "src/shell_grpo/runner.py": "47f4f5d67545a662c42af594b05e08581689e3eea46e76a65228f611eb6aa6b2",
+    "src/shell_grpo/ns_exec.py": "d6c4941be980159598b76e27be874a5186551740ca94764247221904ae61ce0d",
+    "configs/runner.yaml": "9efdfc2bc960c2a6e4b54b862ce7c59e5323fbb2cf2be2e032c67e2ec8e6e99a",
+    "containers/grader/Dockerfile": "9437f52dcaaa8240679c1ed0dd1779cadecee037d413ea6cd33b40c1066dea79"
+  },
+  "config_bundle": {
+    "configs/grpo-pilot.yaml": "b68c21dd26c72b115d7f02b46966bf898e5b3fe89ab8f1531c1aa7a53dba4602",
+    "configs/grpo-main.yaml": "bed57898fd5bed25d2f92cde088f2acfabbd399054238b210fe9779ffa34e78b",
+    "configs/model.yaml": "d2f0c9aff0e74b956bd1fcd627302408b79cf4cc7d6b724d8103f23ad19fddb2",
+    "configs/dataset.yaml": "4658af2553bdc23132a615c40eeafd905f316d7ff7757f460576529bb9bb90c1"
+  },
+  "model_identity": {
+    "repo_id": "unsloth/gemma-4-E4B-it",
+    "revision": "4e22d7e59e078e63a14f351efdc5232ed366b621",
+    "template": "gemma-4-thinking (frozen in src/shell_grpo/generate.py)"
+  },
+  "payloads": {
+    "bank-v2/bank.jsonl": {
+      "sha256": "af8b5cfca4965be0dde5af8a77fad3be254f92a935287da26f0cdfd20097cbdc"
+    },
+    "bank-v2/manifest.json": {
+      "sha256": "325b89d8a66bc020bbc245e586483da73bd56742f5f35e9d4c521e6cd22fe7e2"
+    },
+    "examples-scripts.tar.gz": {
+      "sha256": "ecd11662c9d1779f3a50909e3d833c888eaa80f458c9e5211f046193e0d3cc41"
+    }
+  },
+  "payload_uri_prefix": "hf://rajivmehtapy/gemma4-shell-grpo-artifacts/p5/dataset-v1",
+  "notes": [
+    "grader-only fields (fixtures, verifiers, wrong-script expectations) never enter policy prompts; prompts are the `prompt` field of bank.jsonl records",
+    "bank-v1 remains frozen at data/dataset/bank-v1/ (Phase 3 release)"
+  ]
+}
