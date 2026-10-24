@@ -65,6 +65,7 @@ def run_stage(
     model_cfg_path: Path,
     override_tasks: str,
     revision: str | None,
+    generate_only: bool = False,
 ) -> int:
     from shell_grpo.evaluate import evaluate_completion
     from shell_grpo.generate import ModelConfig, generate_one, load_model
@@ -87,7 +88,7 @@ def run_stage(
     raw_dir = stage_dir / "raw-completions"
     records_dir.mkdir(parents=True, exist_ok=True)
 
-    runner = make_runner(REPO / cfg["grading"]["runner_config"])
+    runner = None if generate_only else make_runner(REPO / cfg["grading"]["runner_config"])
 
     wanted = stage_tasks(cfg, stage, out_dir, override_tasks)
     if not wanted:
@@ -124,15 +125,51 @@ def run_stage(
                       f"{json.loads(rec_path.read_text()).get('task_score')}", flush=True)
                 continue
             generation = generate_one(model, tokenizer, task.task_id, task.prompt, model_cfg)
-            record = evaluate_completion(
-                task, generation, runner,
-                candidate_id=f"screen{stage}-{cand}",
-                group_seed=seed,  # shared by the whole group; fresh state per run
-                raw_dir=raw_dir,
-            )
-            rec_path.write_text(json.dumps(record.to_dict(), indent=2) + "\n")
-            print(f"[{task_id} #{cand}] score={record.task_score} "
-                  f"status={record.aggregate_status} trunc={record.truncated}", flush=True)
+            if generate_only:
+                # Split-pipeline mode (grading host may differ from the GPU
+                # host): record the raw completion + extracted script only;
+                # a later `grade` pass fills in grade_result/task_score.
+                from shell_grpo.evaluate import extract_script
+                import hashlib
+                extraction = extract_script(generation.completion)
+                raw_dir.mkdir(parents=True, exist_ok=True)
+                raw_path = raw_dir / f"{task.task_id}-screen{stage}-{cand}.txt"
+                raw_path.write_text(generation.completion)
+                record = {
+                    "task_id": task.task_id,
+                    "candidate_id": f"screen{stage}-{cand}",
+                    "model": {"repo_id": model_cfg.repo_id, "revision": model_cfg.revision},
+                    "generation_settings": generation.settings,
+                    "prompt_sha256": generation.prompt_sha256,
+                    "raw_completion_ref": str(raw_path),
+                    "completion_sha256": hashlib.sha256(generation.completion.encode()).hexdigest(),
+                    "extraction": extraction.to_dict(),
+                    "script": extraction.script,
+                    "script_sha256": hashlib.sha256(extraction.script.encode()).hexdigest() if extraction.script else None,
+                    "grade_result": None,
+                    "task_score": None,
+                    "aggregate_status": None,
+                    "critical_violations": [],
+                    "truncated": generation.truncated,
+                    "new_tokens": generation.new_tokens,
+                    "generation_ms": generation.duration_ms,
+                    "grading_ms": 0,
+                    "pending_grade": True,
+                }
+            else:
+                record = evaluate_completion(
+                    task, generation, runner,
+                    candidate_id=f"screen{stage}-{cand}",
+                    group_seed=seed,  # shared by the whole group; fresh state per run
+                    raw_dir=raw_dir,
+                ).to_dict()
+            rec_path.write_text(json.dumps(record, indent=2) + "\n")
+            if generate_only:
+                print(f"[{task_id} #{cand}] generated trunc={record['truncated']} "
+                      f"extracted={record['extraction']['ok']}", flush=True)
+            else:
+                print(f"[{task_id} #{cand}] score={record['task_score']} "
+                      f"status={record['aggregate_status']} trunc={record['truncated']}", flush=True)
 
     summarize_stage(stage_dir, records_dir, wanted, n_cand, seed)
     return 0
@@ -265,9 +302,54 @@ def analyze(out_dir: Path, cfg: dict) -> int:
     return 0
 
 
+def grade_pending(stage: int, cfg: dict, out_dir: Path) -> int:
+    """Fill in grades for generate-only records (split-pipeline mode).
+
+    Runs on the grading host: same group seed as the generation run, same
+    record files — the model outputs never leave the record JSONs.
+    """
+    from shell_grpo.runner import make_runner, grade_script
+    from shell_grpo.tasks import get_task
+
+    seed = int(cfg["group_seeds"][f"screening_{stage}"])
+    stage_dir = out_dir / f"screening-{stage}"
+    records_dir = stage_dir / "records"
+    runner = make_runner(REPO / cfg["grading"]["runner_config"])
+
+    pending = []
+    for p in sorted(records_dir.glob("*.json")):
+        rec = json.loads(p.read_text())
+        if rec.get("pending_grade"):
+            pending.append((p, rec))
+    print(f"pending records: {len(pending)}", flush=True)
+    for p, rec in pending:
+        task = get_task(rec["task_id"])
+        if not rec["extraction"]["ok"]:
+            rec["pending_grade"] = False
+            p.write_text(json.dumps(rec, indent=2) + "\n")
+            print(f"[{rec['task_id']} {rec['candidate_id']}] extraction failed; score stays null", flush=True)
+            continue
+        result = grade_script(
+            rec["task_id"], rec["script"].encode(), seed, runner,
+            candidate_id=rec["candidate_id"], group_id=f"eval-{rec['candidate_id']}",
+        )
+        rec["grade_result"] = result.to_dict()
+        rec["task_score"] = result.task_score
+        rec["aggregate_status"] = result.aggregate_status
+        rec["critical_violations"] = result.critical_violations
+        rec["pending_grade"] = False
+        p.write_text(json.dumps(rec, indent=2) + "\n")
+        print(f"[{rec['task_id']} {rec['candidate_id']}] score={result.task_score} "
+              f"status={result.aggregate_status}", flush=True)
+
+    wanted = sorted(cfg["tasks"])
+    summarize_stage(stage_dir, records_dir, wanted, int(cfg["candidates_per_task"]), seed)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["stage", "analyze"])
+    parser.add_argument("action", choices=["stage", "grade", "analyze"])
     parser.add_argument("--stage", type=int, default=1)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--screening-config", type=Path,
@@ -275,13 +357,17 @@ def main() -> int:
     parser.add_argument("--model-config", type=Path, default=REPO / "configs" / "model.yaml")
     parser.add_argument("--tasks", default="", help="comma-separated subset override")
     parser.add_argument("--revision", default=None)
+    parser.add_argument("--no-grade", action="store_true",
+                        help="generation only; grade later with the `grade` action")
     args = parser.parse_args()
 
     cfg = load_screening(args.screening_config)
     if args.action == "analyze":
         return analyze(args.out_dir, cfg)
+    if args.action == "grade":
+        return grade_pending(args.stage, cfg, args.out_dir)
     return run_stage(args.stage, cfg, args.out_dir, args.model_config,
-                     args.tasks, args.revision)
+                     args.tasks, args.revision, generate_only=args.no_grade)
 
 
 if __name__ == "__main__":
