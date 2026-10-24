@@ -13,14 +13,14 @@ from shell_grpo.splits import (
 )
 from shell_grpo.tasks import all_tasks
 
-EXPECTED_COUNTS = {"train": 11, "validation": 9, "test": 12}
+EXPECTED_COUNTS = {"train": 13, "validation": 9, "test": 12}
 
 
 def test_every_registered_task_has_exactly_one_component():
     tasks = all_tasks()
     problems = check_integrity([t.task_id for t in tasks])
     assert problems == []
-    assert len(tasks) == 32
+    assert len(tasks) == 34
     for task in tasks:
         comp = component_for(task.task_id)
         assert comp in COMPONENTS
@@ -85,7 +85,7 @@ def test_task_records_carry_their_split_after_builder(tmp_path):
     out = builder.build_release("test-release", 1, all_tasks())
     lines = (out / "bank.jsonl").read_text().splitlines()
     records = [json.loads(line) for line in lines]
-    assert len(records) == 32
+    assert len(records) == 34
     for record in records:
         assert record["split"] == split_for(record["task_id"])
         assert record["component"] == component_for(record["task_id"])

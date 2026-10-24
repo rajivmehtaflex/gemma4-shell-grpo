@@ -2,9 +2,14 @@
 schema_version: "1.0.0"
 
 release:
-  id: "bank-v1"
+  id: "bank-v2"
   seed: 20261022
   source: "authored-only"     # reports/source-preflight.md: Pi yield 0/5
+  v2_note: >
+    bank-v2 = bank-v1 (32 tasks) + W01/W02 (manifest-verify family, authored
+    2026-10-24 as the phase5 family top-up after the Phase 4 gate confirmed
+    only 4/5 families; reports/screening.md). bank-v1 is preserved frozen at
+    data/dataset/bank-v1/.
 
 splits:
   target_proportions: [60, 20, 20]   # aspirational; components are NEVER split

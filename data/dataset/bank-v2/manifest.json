@@ -1,0 +1,15 @@
+{
+  "release": "bank-v2",
+  "created_utc": "2026-10-24T07:22:09Z",
+  "source": "authored-only (reports/source-preflight.md, yield 0/5)",
+  "bank_sha256": "af8b5cfca4965be0dde5af8a77fad3be254f92a935287da26f0cdfd20097cbdc",
+  "task_count": 34,
+  "split_task_counts": {
+    "train": 13,
+    "validation": 9,
+    "test": 12
+  },
+  "component_count": 27,
+  "seed": 20261022,
+  "reward_version": "r1"
+}

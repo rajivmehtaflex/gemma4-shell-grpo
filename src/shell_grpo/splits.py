@@ -42,6 +42,9 @@ COMPONENTS: dict[str, dict] = {
                  "tasks": ["V03"], "families": ["repair-listing"]},
     "comp-v04": {"split": "train", "origin": "dev-diagnostic",
                  "tasks": ["V04"], "families": ["text-slice"]},
+    # ---- development / train (phase5 family top-up) --------------------------
+    "comp-w01": {"split": "train", "origin": "authored-topup",
+                 "tasks": ["W01", "W02"], "families": ["manifest-verify"]},
     # ---- development / validation ------------------------------------------
     "comp-d01": {"split": "validation", "origin": "dev-diagnostic",
                  "tasks": ["D01", "S01"], "families": ["file-select-count"]},
