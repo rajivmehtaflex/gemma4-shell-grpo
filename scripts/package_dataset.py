@@ -48,13 +48,20 @@ def hf_url(rel: str) -> str:
 
 
 def hf_upload(rel: str, local: Path) -> None:
-    import subprocess
+    try:
+        from huggingface_hub import HfApi
 
-    subprocess.run(
-        [str(REPO / ".venv/bin/hf") if (REPO / ".venv/bin/hf").exists() else "hf",
-         "upload", HF_REPO, str(local), f"{HF_PREFIX}/{rel}", "--repo-type=model"],
-        check=True,
-    )
+        HfApi().upload_file(
+            path_or_fileobj=str(local), path_in_repo=f"{HF_PREFIX}/{rel}",
+            repo_id=HF_REPO, repo_type="model",
+        )
+    except ImportError:
+        import subprocess
+
+        subprocess.run(
+            ["hf", "upload", HF_REPO, str(local), f"{HF_PREFIX}/{rel}", "--repo-type=model"],
+            check=True,
+        )
 
 
 def hf_sha(rel: str) -> str:
