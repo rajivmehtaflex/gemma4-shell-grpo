@@ -121,7 +121,11 @@ def build() -> int:
                 "family": r["family_id"],
                 "pool": r.get("pool", "development_pool"),
                 "train_weight": 1.0 if r["task_id"] in pool else 0.0,
-                "prompt_sha256": hashlib.sha256(r["prompt"].encode()).hexdigest(),
+                # prompts serialize as chat-message lists in bank.jsonl; the
+                # canonical hash covers the exact JSON structure
+                "prompt_sha256": hashlib.sha256(
+                    json.dumps(r["prompt"], sort_keys=True, ensure_ascii=False).encode()
+                ).hexdigest(),
             }
             for r in bank_records
         ],
