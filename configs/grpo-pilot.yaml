@@ -1,0 +1,105 @@
+# Phase 5 FROZEN pilot configuration (direct GRPO, no SFT). Every value below
+# is frozen before the first pilot GPU run; changes require a new config and a
+# repeated readiness check (PLAN Phase 5). Sources for each choice are cited.
+schema_version: "1.0.0"
+
+experiment:
+  name: "pilot-1"
+  campaign_role: "pilot"          # ≤3 pilot configs allowed; this is #1
+  training_seed: 3407             # single primary seed (campaign limit)
+  claim: "exploratory"            # +5pp is a practical target, not a promise
+
+model:
+  repo_id: "unsloth/gemma-4-E4B-it"
+  revision: "4e22d7e59e078e63a14f351efdc5232ed366b621"   # frozen Phase 2 probe
+  quantization: "bitsandbytes 4-bit (QLoRA base)"
+  fast_inference: false           # Gemma 4 RL is not vLLM-supported (documented)
+  fresh_lora: true                # direct GRPO from the original checkpoint
+  lora:
+    r: 16                         # probe-validated (34.9M trainable params)
+    alpha: 16
+    dropout: 0
+    target: "all linear language layers, vision untouched"
+
+template:
+  chat_template: "gemma-4-thinking"   # frozen byte-exact (src/shell_grpo/generate.py)
+  enable_thinking: true
+
+dataset:
+  release: "bank-v2"              # manifests/dataset-v1.json is the contract
+  accepted_training_pool:         # uniform sampling over exactly these tasks
+    # 6 confirmed mixed-outcome tasks (useful in both screenings, 5 families)
+    - D02
+    - S03
+    - S05
+    - V01
+    - W01
+    - W02
+    # easy coverage retained per PLAN ("retain easy coverage")
+    - D04
+    - V04
+  excluded_reserve:               # hard-reserve: zero progress, kept for reserve
+    - D03
+    - S02
+    - S04
+    - V03
+  sampling: "uniform over accepted_training_pool, no curriculum, no adaptive filtering"
+  fixture_seed_schedule: "group_seed = derive_fixture_seeds(task_id, rotation_seed=20261022+global_step); candidates share the group seed, fresh state each"
+  easy_mixed_hard_proportions: {easy: 2, mixed: 6, hard: 0}
+
+grpo:
+  num_generations: 8              # screening standard; group-relative advantages
+  per_device_train_batch_size: 8  # one full prompt group per step
+  gradient_accumulation_steps: 1
+  max_prompt_length: 768          # longest train prompt measures 612 tokens
+  max_completion_length: 1280     # thought channel + bash block; >=1024 floor from Phase 2 truncation evidence
+  max_seq_length: 2048
+  learning_rate: 2.0e-6           # conservative GRPO range; probe used 1e-4 only for a 2-step wiring test
+  lr_scheduler: "cosine"
+  warmup_steps: 1
+  beta: 0.0                       # group-relative advantage, no KL anchor (frozen Phase 2 decision)
+  loss_type: "grpo"
+  scale_rewards: "group"
+  temperature: 1.0                # Gemma 4 recommended decoding, frozen
+  top_p: 0.95
+  top_k: 64
+
+budget:
+  max_steps: 12
+  gpu_time_ceiling_hours: 10      # hard stop; watchdog stops the run at the deadline
+  spend_ceiling_usd: 10           # monthly cash ceiling (STATE.md); pod terminated at ceiling
+  stop_conditions:
+    - "loss NaN/Inf at any step -> halt, keep last good checkpoint"
+    - "loss > 20 (E4B healthy band 13-15, probe evidence) for 2 consecutive steps -> halt"
+    - "mean training reward exactly 0.0 for 3 consecutive steps -> halt (grader/prompt fault suspected)"
+    - "3 infrastructure halts on the same step -> invalidate group, halt, preserve"
+  checkpoint_every_steps: 4       # steps 4, 8, 12 (12 = final); full optimizer state per DESIGN
+  max_checkpoints_kept: 3
+
+evaluation:
+  # Frozen pilot comparison (PLAN: valid grading + positive functional
+  # validation point estimate without increased critical violations).
+  validation_tasks:               # full validation split of bank-v2 (never trained on)
+    - D01
+    - D05
+    - S01
+    - S06
+    - S07
+    - S09
+    - S10
+    - V02
+    - V05
+  candidates_per_task: 4
+  generation_repetitions: 2       # average within task; components are the audit unit
+  max_new_tokens: 2048            # matched with the untouched baseline budget
+  decoding: "same frozen decoding as training generation"
+  comparison: "paired task-level: pilot final checkpoint vs Phase 2 untouched baseline records; bootstrap over connected components; too-few-component uncertainty reported explicitly"
+  regression_subset: "configs/dataset.yaml regression_subset (D01/D05 known-goods) rerun every comparison"
+  stop_thresholds:
+    critical_violations: "any increase in observed critical-violation records vs baseline -> do not proceed, report"
+
+checkpoint_selection: "final checkpoint only (pilot); no test-score-driven selection"
+
+extraction_contract:
+  rule: "exactly one fenced bash block in the final response (src/shell_grpo/evaluate.py, frozen)"
+  sampled_check: "128 screening completions checked against the extractor: 96/128 extracted (75%) — failures concentrate in V03 (16/16) and W02 runaway thoughts; contract unchanged for the pilot"

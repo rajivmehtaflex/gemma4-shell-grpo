@@ -1,0 +1,29 @@
+# Phase 5 FROZEN main-run configuration. Inherits every frozen choice from
+# grpo-pilot.yaml except the scale fields below; the main run starts only
+# after the pilot gate passes (PLAN Phase 6) and within the campaign limits
+# (≤3 pilot configs consumed, five scheduled validation checkpoints).
+schema_version: "1.0.0"
+
+experiment:
+  name: "main-1"
+  campaign_role: "main"
+  training_seed: 3407             # same single primary seed (campaign limit)
+  claim: "exploratory"
+
+model: "inherit configs/grpo-pilot.yaml (model, template, dataset sections identical)"
+
+dataset: "inherit configs/grpo-pilot.yaml (accepted_training_pool, sampling, seed schedule)"
+
+grpo:
+  "inherit configs/grpo-pilot.yaml (num_generations, lengths, lr, beta, decoding identical)"
+
+budget:
+  max_steps: 60
+  gpu_time_ceiling_hours: 40      # across activations; watchdog enforced per activation
+  spend_ceiling_usd: 10           # per-month cash ceiling; runs may span months
+  checkpoint_every_steps: 12      # steps 12, 24, 36, 48, 60 -> five scheduled checkpoints incl. final
+  max_checkpoints_kept: 5
+  stop_conditions: "inherit pilot stop conditions; additionally: pilot must have passed its gate before this run starts"
+
+evaluation:
+  "inherit pilot evaluation; validation checkpoints at every saved step (5), final-only selection for the main comparison; regression subset rerun per checkpoint"
