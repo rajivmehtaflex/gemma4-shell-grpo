@@ -110,9 +110,10 @@ def run_stage(
         model={"repo_id": model_cfg.repo_id, "revision": model_cfg.revision,
                "quantization": model_cfg.quantization},
         environment={},
-        image_digest=runner.image_digest,
+        image_digest=(runner.image_digest if runner else "split-pipeline:generation-host"),
         seeds={"screening_seed": seed, "candidates_per_task": n_cand,
-               "max_new_tokens": max_new, "stage": stage, "tasks": wanted},
+               "max_new_tokens": max_new, "stage": stage, "tasks": wanted,
+               "generate_only": generate_only},
     )
     manifest.write(stage_dir / "manifest.json")
 
