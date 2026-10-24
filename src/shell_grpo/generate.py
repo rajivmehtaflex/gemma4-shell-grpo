@@ -107,7 +107,7 @@ def render_prompt(tokenizer, user_content: str, cfg: ModelConfig) -> str:
     patching re-routes even the inner tokenizer, so the format is built
     directly and asserted by tests/test_extraction.py.
     """
-    if cfg.enable_thinking:
+    if getattr(cfg, "enable_thinking", True):
         system = "<|turn>system\n<|think|>\n<turn|>\n"
     else:
         system = ""

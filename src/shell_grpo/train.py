@@ -93,3 +93,102 @@ def load_policy_for_training(model_cfg_path: Path, train_limits: TrainLimits):
         random_state=train_limits.seed,
     )
     return model, tokenizer
+
+
+class InlineGrader:
+    """Adapts the Phase 1 grader to the reward-fn interface (`runner.grade`).
+
+    Runs the namespace engine INLINE on the training host — the frozen
+    Phase 6 routing (Modal gVisor passed the isolation proof). One grade per
+    candidate, synchronous, inside the reward function.
+    """
+
+    def __init__(self, runner):
+        self.runner = runner
+        self.calls = 0
+
+    def grade(self, task_id: str, script: str, seed: int, candidate_id: str):
+        from .runner import grade_script
+
+        self.calls += 1
+        return grade_script(
+            task_id, script, seed, self.runner,
+            candidate_id=candidate_id, group_id=f"train-{task_id}",
+        )
+
+
+def build_pilot_dataset(tokenizer, task_ids: list[str], steps: int, seed_base: int,
+                        dataset_factory=None):
+    """Frozen sampling (grpo-pilot.yaml): uniform over the accepted pool, one
+    task per step, group fixture seed rotating per row: 20261022 + row index.
+
+    Rows cycle the pool to reach `steps`; `task_ids` order is the frozen pool
+    order, so the sequence is deterministic given the trainer seed.
+    ``dataset_factory`` injects a stand-in for ``datasets.Dataset`` on hosts
+    without the HF stack (tests); the GPU path uses the real thing.
+    """
+    if dataset_factory is None:
+        from datasets import Dataset
+    else:
+        Dataset = dataset_factory
+
+    from .generate import render_prompt
+    from .tasks import get_task
+
+    rows = []
+    for step in range(steps):
+        task = get_task(task_ids[step % len(task_ids)])
+        # cfg=None renders the frozen thinking template default (generate.py)
+        rows.append({
+            "prompt": render_prompt(tokenizer, task.prompt, None),
+            "task_ids": task.task_id,
+            "group_seeds": seed_base + step,
+        })
+    return Dataset.from_list(rows)
+
+
+class StopConditionCallback:
+    """Frozen grpo-pilot.yaml stop conditions, checked after every step.
+
+    Halts by raising SettingWithCopyWarning-free StopTraining flag through
+    ``trainer.control.should_training_stop``. Reasons are recorded for the
+    run record; the last good checkpoint is always kept.
+    """
+
+    def __init__(self, reward_sink: list, *, max_loss: float = 20.0,
+                 zero_reward_steps: int = 3, high_loss_steps: int = 2):
+        import logging
+
+        self.log = logging.getLogger("stop-conditions")
+        self.reward_sink = reward_sink      # mean reward per step (appended by reward fn)
+        self.losses: list[float] = []
+        self.reason: str | None = None
+        self.max_loss = max_loss
+        self.zero_reward_steps = zero_reward_steps
+        self.high_loss_steps = high_loss_steps
+
+    def _halt(self, control, reason: str) -> None:
+        self.reason = reason
+        self.log.warning("STOP CONDITION: %s", reason)
+        control.should_training_stop = True
+        control.should_save = True
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if logs and "loss" in logs:
+            self.losses.append(float(logs["loss"]))
+        if self.losses:
+            last = self.losses[-1]
+            if last != last or last in (float("inf"), float("-inf")):
+                self._halt(control, f"loss NaN/Inf at step {state.global_step}")
+                return
+        if len(self.losses) >= self.high_loss_steps and all(
+            l > self.max_loss for l in self.losses[-self.high_loss_steps:]
+        ):
+            self._halt(control, f"loss > {self.max_loss} for {self.high_loss_steps} consecutive "
+                                f"steps at step {state.global_step}")
+            return
+        if len(self.reward_sink) >= self.zero_reward_steps and all(
+            r == 0.0 for r in self.reward_sink[-self.zero_reward_steps:]
+        ):
+            self._halt(control, f"mean reward exactly 0.0 for {self.zero_reward_steps} consecutive "
+                                f"steps at step {state.global_step}")
