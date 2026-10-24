@@ -1,0 +1,37 @@
+# Screening analysis over the FULL train pool of bank-v2 (13 tasks): the
+# original 11 from configs/screening.yaml + the W top-up family. Used only for
+# the merged gate computation — the original stage-1/2 records are unchanged
+# (same seeds), the W records were produced under the same frozen thresholds.
+schema_version: "1.0.0"
+
+screening:
+  pool: "train"
+  tasks:
+    - D02
+    - D03
+    - D04
+    - S02
+    - S03
+    - S04
+    - S05
+    - S08
+    - V01
+    - V03
+    - V04
+    - W01
+    - W02
+  candidates_per_task: 8
+  group_seeds:
+    screening_1: 410001
+    screening_2: 410002
+  candidates_share_group_seed: true
+  max_new_tokens: 2048
+  decoding: "configs/model.yaml"
+  grading:
+    runner_config: "configs/runner.yaml"
+  report: "reports/screening.md"
+  thresholds:
+    useful_group: ">=2 distinct non-null task_score values among the group's candidates"
+    min_useful_proportion: 0.25
+    min_useful_tasks_both_screenings: 3
+    min_families: 5

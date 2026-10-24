@@ -1,0 +1,26 @@
+# Phase 5 top-up screening: the new W-family (manifest-verify) under BOTH
+# Phase 4 screening seeds. Thresholds/seeds identical to configs/screening.yaml
+# (frozen 2026-10-23 at 1e83fdd) — only the task list differs. Gate math runs
+# over configs/screening-v2.yaml (all 13 train tasks) afterwards.
+schema_version: "1.0.0"
+
+screening:
+  pool: "train"
+  tasks:
+    - W01
+    - W02
+  candidates_per_task: 8
+  group_seeds:
+    screening_1: 410001
+    screening_2: 410002
+  candidates_share_group_seed: true
+  max_new_tokens: 2048
+  decoding: "configs/model.yaml"
+  grading:
+    runner_config: "configs/runner.yaml"
+  report: "reports/screening.md"
+  thresholds:
+    useful_group: ">=2 distinct non-null task_score values among the group's candidates"
+    min_useful_proportion: 0.25
+    min_useful_tasks_both_screenings: 3
+    min_families: 5
