@@ -81,7 +81,6 @@ def main() -> int:
         gradient_accumulation_steps=int(grpo_cfg["gradient_accumulation_steps"]),
         num_generations=int(grpo_cfg["num_generations"]),
         max_completion_length=int(grpo_cfg["max_completion_length"]),
-        max_prompt_length=int(grpo_cfg["max_prompt_length"]),
         learning_rate=float(grpo_cfg["learning_rate"]),
         lr_scheduler_type=grpo_cfg.get("lr_scheduler", "cosine"),
         warmup_steps=int(grpo_cfg.get("warmup_steps", 1)),
